@@ -55,4 +55,4 @@ Grade: /100
   - [50 pts] lottery scheduling works - producing reasonable scheduling results. Grader will test this using the testing scripts, but you should also include your testing results in the README file.
 
 - [10 pts] Documentation:
-  - README.md file (replace this current README.md with a new one using the README template)
+  - README.md file (replace this current README.md with a new one using the README template. You do not need to check in this current README file.)
