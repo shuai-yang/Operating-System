@@ -35,7 +35,7 @@ struct lexus_task_struct {
 static struct lexus_task_struct lexus_task_struct;
 
 /* the currently running task */
-static struct task_struct *lexus_current_task;
+static struct task_struct *lexus_current;
 
 /* used for creating and traversing the linked list */
 static struct list_head *head, *next;
@@ -138,16 +138,20 @@ int __init lexus_init(void)
 	}
 
 	/* the lexus version of "current" - in Linux kernel, the global variable "current" points to the currently running process - its task_struct */
-	lexus_current_task = NULL;
+	lexus_current = NULL;
 
+	/* initialize the list_head to be empty */
 	INIT_LIST_HEAD(&lexus_task_struct.list);
 	/* allocate a memory pool from the slab memory management system to accommodate all lexus_task_struct instances */
 	task_cache = kmem_cache_create("lexus_task_cache",
 									sizeof(struct lexus_task_struct),
 									0, SLAB_HWCACHE_ALIGN,
 									NULL);
-	/* a kernel thread named lexus_dispatch will be running at the background, which calls lexus_schedule() */
+	/* a kernel thread named lexus_dispatch will be running at the background, which calls lexus_schedule().
+ 	 * We don't need to pass any parameter lexus_schedule(), thus here the 2nd parameter is NULL. */
 	dispatch_kthread = kthread_create(lexus_schedule, NULL, "lexus_dispatch");
+
+	/* initialize the spin lock */
 	spin_lock_init(&list_lock);
 
 	/* setup your timer to call dispatch_timer_callback */
