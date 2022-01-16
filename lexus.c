@@ -44,9 +44,6 @@ static struct lexus_task_struct *tmp;
 /* spinlock to protect the linked list */
 static spinlock_t list_lock;
 
-/* cache for lexus_task_struct slab allocation */
-static struct kmem_cache *task_cache;
-
 /* dispatch kernel thread */
 static struct task_struct *dispatch_kthread;
 
@@ -72,12 +69,12 @@ struct lexus_task_struct* find_lexus_task_by_pid(unsigned int pid) {
    return NULL;
 }
 
-/* free all the lexus_task_struct instances: delete its list, and free its memory allocated via kmem_cache_alloc() */
+/* free all the lexus_task_struct instances: delete its list, and free its memory allocated via kmalloc() */
 void free_lexus_list(void) {
    list_for_each_safe(head, next, &lexus_task_struct.list) {
       tmp = list_entry(head, struct lexus_task_struct, list);
       list_del(head);
-      kmem_cache_free(task_cache, tmp);
+      kfree(tmp);
    }
 }
 
@@ -142,11 +139,7 @@ int __init lexus_init(void)
 
 	/* initialize the list_head to be empty */
 	INIT_LIST_HEAD(&lexus_task_struct.list);
-	/* allocate a memory pool from the slab memory management system to accommodate all lexus_task_struct instances */
-	task_cache = kmem_cache_create("lexus_task_cache",
-									sizeof(struct lexus_task_struct),
-									0, SLAB_HWCACHE_ALIGN,
-									NULL);
+
 	/* a kernel thread named lexus_dispatch will be running at the background, which calls lexus_schedule().
  	 * We don't need to pass any parameter lexus_schedule(), thus here the 2nd parameter is NULL. */
 	dispatch_kthread = kthread_create(lexus_schedule, NULL, "lexus_dispatch");
@@ -182,9 +175,6 @@ void __exit lexus_exit(void)
 
 	/* free the memory allocated for each lexus_task_struct */
 	free_lexus_list();
-
-	/* free the memory pool */
-	kmem_cache_destroy(task_cache);
 
 	misc_deregister(&lexus_dev);
 	#ifdef DEBUG

@@ -8,14 +8,15 @@
 int lexus_fd;
 //#define DEBUG 1
 
-unsigned long fibonacci(unsigned long n)
-{
-   if (n <= 0)
-      return 0;
-   else if (n == 1)
-      return 1;
-   else
-      return fibonacci(n-1) + fibonacci(n-2);
+/* this function calculates the lucas series, the lucas series
+ * goes like this: 2, 1, 3, 4, 7, 11, 18, 29, 47, 76, 123... */
+int lucas(int n){
+	if(n == 0)
+		return 2;
+	if(n == 1)
+		return 1;
+
+	return (lucas(n - 1) + lucas(n - 2));
 }
 
 double getMilliSeconds(void)
@@ -83,9 +84,9 @@ int main(int argc, char *argv[]) {
 
 	// sort the input (and time it)
 	start_time = getMilliSeconds();
-	fibonacci(n);
+	lucas(n);
 	computing_time = getMilliSeconds() - start_time;
-	printf("pid %lu, with %lu tickets: computing fibonacci(%lu) took %4.2lf seconds.\n", pid, tickets, n, computing_time/1000.0);
+	printf("pid %lu, with %lu tickets: computing lucas(%lu) took %4.2lf seconds.\n", pid, tickets, n, computing_time/1000.0);
 
 	unregister_process(tmp);
 	#ifdef DEBUG
@@ -94,3 +95,5 @@ int main(int argc, char *argv[]) {
 	close(lexus_fd);
 	return 0;
 }
+
+/* vim: set ts=4: */
