@@ -82,12 +82,13 @@ Note that in the above example, p and n and temporary pointers, which are requir
   - spin locks to protect the list. Any code which manipulates the list needs to be locked, so as to avoid thing like this to happen: while you are iterating over the list, someone deletes some node from the list, or adds a node to the list. This could cause chaos to the list. To have the protection, see the following example:
 
 ```c
-spin_lock_irqsave(&list_lock, lock_flag);
+unsigned long flags;
+spin_lock_irqsave(&list_lock, flags);
 list_add(&(node->list), &(lexus_task_struct.list));
-spin_unlock_irqrestore(&list_lock, lock_flag);
+spin_unlock_irqrestore(&list_lock, flags);
 ```
 
-Call spin\_lock\_irqsave(&list\_lock, lock\_flag) before you want to manipulate the list, call spin\_unlock\_irqrestore(&list\_lock, lock\_flag) once your manipulation is finished. We will explain these functions in a more detailed fashion later this semester when we move on to the concurrency topics.
+First define a local variable called flags, and then call spin\_lock\_irqsave(&list\_lock, flags) before you want to manipulate the list - in the above example, we call list\_add() to add a node to the list, and then call spin\_unlock\_irqrestore(&list\_lock, flags) once your manipulation is finished. We will explain these lock functions in a more detailed fashion later this semester when we move on to the concurrency topics.
 
   - adjusting scheduling priority: when the timer goes off, it's time to hold a new lottery and maybe schedule a different process (than the one that is currently running). At this point, the old task should be treated like this:
 
@@ -194,3 +195,4 @@ Grade: /100
 
 - [10 pts] Documentation:
   - README.md file (replace this current README.md with a new one using the README template. You do not need to check in this current README file.)
+  - You are required to fill in every section of the README template, missing 1 section will result in a 2-point deduction.
