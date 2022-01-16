@@ -8,7 +8,7 @@ You MUST build against the kernel version (3.10.0-1160.el7.x86\_64), which is th
 
 ## Book References
 
-Operating Systems: Three Easy Pieces: [Chapter 9: Lottery Scheduling](https://pages.cs.wisc.edu/~remzi/OSTEP/cpu-sched-lottery.pdf)(as know as "Scheduling: Proportional Share").
+Operating Systems: Three Easy Pieces: [Chapter 9: Lottery Scheduling](https://pages.cs.wisc.edu/~remzi/OSTEP/cpu-sched-lottery.pdf) (also known as "Scheduling: Proportional Share").
 
 # Specification
 
@@ -31,45 +31,20 @@ You need to implement the following 5 functions in the kernel module:
 
 A testing program (test-lexus.c) and corresponding testing scripts (lexus-test\*.sh) are also provided. The test scripts start a number of the test program simultaneously, and pass different parameters to the testing program. Each testing program will run as a seperate process, which holds a number of tickets. When every process tries to complete the same task, processes which hold more tickets of course will be more likely to be scheduled, and thus are expected to finish faster, and this complies with the basic idea of lottery scheduling.
 
-## Predefined Data Structures
+## Predefined Data Structures and Provided Helper Functions
   - struct lexus\_task\_struct: each instance of this data structure is representing a process; the Linux kernel defines struct task\_struct, each of such struct represents a process in the Linux kernel. lexus\_task\_struct is a wrapper of task\_struct, in other words, it include task\_struct, but also includes other fields necessary for the lottery scheduling.
   - struct lottery\_struct: this data structure, defined in lexus.h, is used by the application to pass parameters to the kernel module; because both applications and the kernel module includes "lexus.h", thus the kernel module also knows this data structure, and thus you can use it in your kernel module. This allows you to pass information from the application to the kernel module.
+  - struct task\_struct\* find\_task\_by\_pid(unsigned int pid); given a pid, this function returns a pointer pointing to its associated struct task\_struct.
+  - struct lexus\_task\_struct\* find\_lexus\_task\_by\_pid(unsigned int pid); given a pid, this function returns a pointer pointing to its associated struct lexus\_task\_struct.
 
 ## Related Kernel APIs
 
 I used the following APIs. 
-  - slab memory allocation and reclaim: The Linux kernel has a memory manager called the slab memory manager, or the slab allocator. The slab allocator is very suitable if you want to allocate data structures of the same type. For example, you keep creating processes and killing processes, then you may need to allocate and de-allocate the struct task\_struct a lot. The slab allocator provides optimization for such use cases. To use slab, we first call kmem\_cache\_create() to reserve a memory pool from the slab, this is done in lexus\_init(), which means we reserve this memory pool when the kernel module is loaded. The code is:
-```c
-	/* allocate a memory pool from the slab memory management system to accommodate all lexus_task_struct instances */
-	task_cache = kmem_cache_create("lexus_task_cache", sizeof(struct lexus_task_struct), 0, SLAB_HWCACHE_ALIGN, NULL);
-```
-
-Here task\_cache is a global variable defined in lexus.c:
-
-```c
-/* cache for lexus_task_struct slab allocation */
-static struct kmem_cache *task_cache;
-```
-
-And then in lexus\_exit(), we call kmem\_cache\_destroy() to free the memory pool:
-```c
-	/* free the memory pool */
-	kmem_cache_destroy(task_cache);
-
-```
-
-This means the reserved memory pool will be released once we unload the kernel module. Both kmem\_cache\_create() and kmem\_cache\_destroy() are called in the starter code and you do not need to create any of these two. However, the above code snippet tells us, when the module is loaded, there is a memory pool called task\_cache, which serves struct of lexus\_task\_struct, and thus anytime you need to allocate memory for a struct lexus\_task\_struct, you should always allocate from this memory pool. And its APIs are:
-
-```c
-void \*kmem\_cache\_alloc(struct kmem\_cache \*, gfp\_t);
-void kmem\_cache\_free(struct kmem\_cache \*, void \*);
-```
-
-When calling kmem\_cache\_alloc() in this assignment, the first parameter is the aforementioned task\_cache, and the second parameter is the same flag you used in the previous assignment: GFP\_KERNEL. This function returns a pointer which points to the address of the allocated memory. You later on will pass this pointer to kmem\_cache\_free() (as the second parameter) when you release the memory, and first parameter of kmem\_cache\_free(), is the same to the first parameter of kmem\_cache\_alloc(), which is task\_cache. Given the fact that the reserved memory pool is specifically for struct lexus\_task\_struct, you can just define a struct lexus\_task\_struct pointer, and assign the return value of kmem\_cache\_alloc() to this pointer.
 
   - list manipulation: to be added soon.
   - spin locks to protect the list: to be added soon.
   - adjusting scheduling priority: to be added soon.
+  - APIs mentioned in the previous project are not described here, including kmalloc(), kfree(), copy\_from\_user(), copy\_to\_user(), you may use some of them, or all of them.
 
 ## Expected Results
 
