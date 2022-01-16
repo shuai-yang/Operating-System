@@ -22,20 +22,23 @@ The starter code already provides you with the code for a kernel module.
 
 What this module currently does is: create a file called /dev/lexus, which provides an inteface for applications to communicate with the kernel module. In this assignment, the only way to communicate between applications and the kernel module, is applications issue ioctl() system calls to this device file (i.e., /dev/lexus), and the kernel module will handle these ioctl commands. The two commands we need to support are: register and unregister. Applications who want to be managed by our lottery scheduling should issue a register command to /dev/lexus; registered applications who want to get out should issue an unregister command.
 
-You need to implement the following 5 functions in the kernel module:
-  - lexus\_register(): this function will be called when applications want to register themselves into the lottery scheduling system.
-  - lexus\_unregister(): this function will be called when applications want to unregister themselves from the lottery scheduling system.
+The starter code includes a function called dispatch\_timer\_callback(). This function sets a timer which goes off every 200 milliseconds, and when the timer goes off, this function wakes up the lottery scheduling thread, which runs lexus\_schedule() to hold a lottery and choose a new task based on the lottery result.
+
+## Functions You Need to Implement
+
+You need to implement the following 4 functions in the kernel module:
+  - lexus\_register(): this function will be called when applications want to register themselves into the lottery scheduling system. In this function you should allocate memory for a struct lexus\_task\_struct instance, initialize it, and add it into the global list lexus\_task\_struct.list - described below in the "Related Kernel APIs" section.
+  - lexus\_unregister(): this function will be called when applications want to unregister themselves from the lottery scheduling system. In this function you should free the memory allocated in lexus\_register(), and remove the task from the global list.
   - lexus\_dev\_ioctl(): this function will be called when applications issue commands via the ioctl system call. Applications do not call lexus\_register()/lexus\_unregister() directly, they send ioctl commands to the kernel module, which handles these commands via this lexus\_dev\_ioctl() function and call the reigster/unregister functions on behalf of applications.
-  - lexus\_schedule(): this is the main scheduling function of the lottery scheduling system. Refer to the book chapter for how this part should be implemented.
-  - dispatch\_timer\_callback(): when the timer expires, this function will be called. In this function you update the timer and wake up the lottery scheduling thread. The idea is, we want to hold a lottery every 200 milliseconds - thus we want a timer which expires every 200 milliseconds.
+  - lexus\_schedule(): this is the main scheduling function of the lottery scheduling system, this function will be called every 200 milliseconds. Refer to the book chapter for how your lottery scheduling should be implemented.
 
 A testing program (test-lexus.c) and corresponding testing scripts (lexus-test\*.sh) are also provided. The test scripts start a number of the test program simultaneously, and pass different parameters to the testing program. Each testing program will run as a seperate process, which holds a number of tickets. When every process tries to complete the same task, processes which hold more tickets of course will be more likely to be scheduled, and thus are expected to finish faster, and this complies with the basic idea of lottery scheduling.
 
-## Predefined Data Structures and Provided Helper Functions
+## Predefined Data Structures, Global Variables, and Provided Helper Functions
   - struct lexus\_task\_struct: each instance of this data structure is representing a process; the Linux kernel defines struct task\_struct, each of such struct represents a process in the Linux kernel. lexus\_task\_struct is a wrapper of task\_struct, in other words, it include task\_struct, but also includes other fields necessary for the lottery scheduling.
   - struct lottery\_struct: this data structure, defined in lexus.h, is used by the application to pass parameters to the kernel module; because both applications and the kernel module includes "lexus.h", thus the kernel module also knows this data structure, and thus you can use it in your kernel module. This allows you to pass information from the application to the kernel module.
+  - unsigned long nTickets: this integer nTickets represents how many tickets in total we have in the lottery scheduling system, at first, it is initialized to 0; you should increment this number when you have tasks get registered, and decrement this number when tasks unregister.
   - struct task\_struct\* find\_task\_by\_pid(unsigned int pid); given a pid, this function returns a pointer pointing to its associated struct task\_struct.
-  - struct lexus\_task\_struct\* find\_lexus\_task\_by\_pid(unsigned int pid); given a pid, this function returns a pointer pointing to its associated struct lexus\_task\_struct.
 
 ## Related Kernel APIs
 
@@ -79,16 +82,16 @@ Note that in the above example, p and n and temporary pointers, which are requir
     }
 ```
 
-  - spin locks to protect the list. Any code which manipulates the list needs to be locked, so as to avoid thing like this to happen: while you are iterating over the list, someone deletes some node from the list, or adds a node to the list. This could cause chaos to the list. To have the protection, see the following example:
+  - spin locks to protect the list, and global variables. Any code which manipulates the list needs to be locked, so as to avoid thing like this to happen: while you are iterating over the list, someone deletes some node from the list, or adds a node to the list. This could cause chaos to the list. To have the protection, see the following example:
 
 ```c
 unsigned long flags;
-spin_lock_irqsave(&list_lock, flags);
+spin_lock_irqsave(&lexus_lock, flags);
 list_add(&(node->list), &(lexus_task_struct.list));
-spin_unlock_irqrestore(&list_lock, flags);
+spin_unlock_irqrestore(&lexus_lock, flags);
 ```
 
-First define a local variable called flags, and then call spin\_lock\_irqsave(&list\_lock, flags) before you want to manipulate the list - in the above example, we call list\_add() to add a node to the list, and then call spin\_unlock\_irqrestore(&list\_lock, flags) once your manipulation is finished. We will explain these lock functions in a more detailed fashion later this semester when we move on to the concurrency topics.
+First define a local variable called flags, and then call spin\_lock\_irqsave(&lexus\_lock, flags) before you want to manipulate the list - in the above example, we call list\_add() to add a node to the list, and then call spin\_unlock\_irqrestore(&lexus\_lock, flags) once your manipulation is finished. We will explain these lock functions in a more detailed fashion later this semester when we move on to the concurrency topics. You should also use these two functions when you attempt to change global variables, such as nTickets, and lexus\_current.
 
   - adjusting scheduling priority: when the timer goes off, it's time to hold a new lottery and maybe schedule a different process (than the one that is currently running). At this point, the old task should be treated like this:
 
@@ -106,7 +109,7 @@ The above code will tell the CFS scheduler that this process now has a low prior
     sched_setscheduler(node, SCHED_FIFO, &sparam);
 ```
 The above code will first wakp the chosen process, and tell the CFS scheduler that this process now has a high priority - any task running on SCHED\_FIFO will hold the CPU for as long as the application needs.
-  - wake\_up\_process(); note that this function take a struct task\_struct as a parameter, not a struct lexus\_task\_struct. The timer will call this function to wake up the dispatching thread; the dispatching thread will call this function to wake up the chosen process, the lexus\_exit() function will call this function to wake up the dispatch thread so it can get ready to exit.
+  - wake\_up\_process(). As the name suggests, this function wakes up a process. Note that this function take a struct task\_struct as a parameter, not a struct lexus\_task\_struct. The timer will call this function to wake up the dispatching thread; the dispatching thread will call this function to wake up the chosen process, the lexus\_exit() function will call this function to wake up the dispatch thread so it can get ready to exit.
   - let the dispatching thread sleep: once the dispatching thread has run the lottery algorithm and chosen a process, the dispatching thread itself should go to sleep, and get woken up when the timer goes off again. The following two lines let the dispatching thread go to sleep:
 
 ```c
@@ -122,7 +125,18 @@ while(!kthread_should_stop()) {
 
 And we can see in lexus\_exit(), it calls kthread\_stop(dispatch\_kthread); that's when the dispatching thread finally gets out of this while loop and return.
 
-  - get\_random\_bytes();
+  - get\_random\_bytes(). prototype: void get\_random\_bytes(void \*buf, int nbytes); This function returns the requested number of random bytes and stores them in a buffer. Below is an example of how to use this function, assuming your lottery system has 888 tickets in total.
+
+```c
+    unsigned long winner = 0;
+    int randval = 0;
+    /* producing a random number as the lottery winning number */
+    get_random_bytes(&randval, sizeof(int)-1);
+    winner = (randval & 0x7FFFFFFF) % 888;
+```
+
+The winner here will be an integer in between 0 and 888-1. Note that your code should not come to here when you have zero ticket, your system would crash due to a "divide by zero" exception.
+
   - APIs mentioned in the previous project are not described here, including kmalloc(), kfree(), copy\_from\_user(), copy\_to\_user(), you may use some of them, or all of them.
 
 ## Expected Results
@@ -166,20 +180,7 @@ pid 3470, with 10 tickets: computing lucas(44) took 76.61 seconds.
 pid 3465, with 5 tickets: computing lucas(44) took 81.10 seconds.
 ```
 
-Even results like this is still acceptable.
-```console
-[cs452@localhost scheduler]$ ./lexus-test3.sh 
-[cs452@localhost scheduler]$ pid 6168, with 20 tickets: computing lucas(44) took 10.93 seconds.
-pid 6167, with 550 tickets: computing lucas(44) took 10.95 seconds.
-pid 6170, with 600 tickets: computing lucas(44) took 21.53 seconds.
-pid 6165, with 250 tickets: computing lucas(44) took 32.70 seconds.
-pid 6163, with 100 tickets: computing lucas(44) took 43.73 seconds.
-pid 6164, with 5 tickets: computing lucas(44) took 54.83 seconds.
-pid 6166, with 50 tickets: computing lucas(44) took 65.50 seconds.
-pid 6169, with 10 tickets: computing lucas(44) took 73.26 seconds.
-```
-
-But even in results like this, we still can see that processes with more tickets are in general faster than processes with fewer tickets. In addition, when your results do not seem to be reasonable, run the test multiple times.
+In addition, when your results do not seem to be reasonable, run the test multiple times.
 
 # Submission
 
@@ -189,9 +190,8 @@ Due: 23:59pm, Feburary 1st, 2022. Late submission will not be accepted/graded.
 Grade: /100
 
 - [ 90 pts] Functional Requirements:
-  - [20 pts] lexus\_schedule() is called periodically. - if your lottery scheduling system works as expected, you do not need to prove this; otherwise, you need to provide evidence proving your lexus\_schedule() is called periodically.
   - [20 pts] process registering and unregistering are successful. - if your lottery scheduling system works as expected, you do not need to prove this; otherwise, you need to provide evidence proving your registering and unregistering are successful.
-  - [50 pts] lottery scheduling works - producing reasonable scheduling results. Grader will test this using the testing scripts, but you should also include your testing results in the README file.
+  - [70 pts] lottery scheduling works - producing reasonable scheduling results. Grader will test this using the testing scripts, but you should also include your testing results in the README file.
 
 - [10 pts] Documentation:
   - README.md file (replace this current README.md with a new one using the README template. You do not need to check in this current README file.)

@@ -34,12 +34,8 @@ struct lexus_task_struct {
 /* use this global variable to track all registered tasks, by adding into its list */
 static struct lexus_task_struct lexus_task_struct;
 
-/* the currently running task */
-static struct task_struct *lexus_current;
-
-/* used for creating and traversing the linked list */
-static struct list_head *head, *next;
-static struct lexus_task_struct *tmp;
+/* the currently running lexus task */
+static struct lexus_task_struct *lexus_current;
 
 /* spinlock to protect the linked list */
 static spinlock_t list_lock;
@@ -58,24 +54,23 @@ struct task_struct* find_task_by_pid(unsigned int pid)
    return task;
 }
 
-/* given a pid, returns its lexus_task_struct */
-struct lexus_task_struct* find_lexus_task_by_pid(unsigned int pid) {
-   list_for_each(head, &lexus_task_struct.list) {
-      tmp = list_entry(head, struct lexus_task_struct, list);
-      if(tmp->pid == pid) {
-         return tmp;
-      }
-   }
-   return NULL;
-}
-
-/* free all the lexus_task_struct instances: delete its list, and free its memory allocated via kmalloc() */
+/* free all the lexus_task_struct instances: delete its list, 
+ * and free its memory allocated via kmalloc().
+ * this function is called in lexus_exit(), you won't use this function. */
 void free_lexus_list(void) {
-   list_for_each_safe(head, next, &lexus_task_struct.list) {
-      tmp = list_entry(head, struct lexus_task_struct, list);
-      list_del(head);
-      kfree(tmp);
-   }
+    struct list_head *p, *n;
+    struct lexus_task_struct *tmp;
+    unsigned long flags;
+    spin_lock_irqsave(&lexus_lock, flags);
+    /* You can just treat this list_for_each_safe() as a for loop:
+ *      * for (p = lexus_task_struct.list->next; p != lexus_task_struct.list; p = p->next), 
+ *           * you can ignore n, it's a temporary pointer used inside the loop. */
+    list_for_each_safe(p, n, &lexus_task_struct.list) {
+        tmp = list_entry(p, struct lexus_task_struct, list);
+        list_del(p);
+        kfree(tmp);
+    }
+    spin_unlock_irqrestore(&lexus_lock, flags);
 }
 
 /* register a process into the lottery scheduling system */
@@ -88,6 +83,21 @@ void lexus_unregister(struct lottery_struct lottery){
 
 void dispatch_timer_callback(unsigned long data)
 {
+    #ifdef DEBUG
+    printk("Timer\n" );
+    #endif
+
+    /* setup timer interval to 200 msecs */
+    mod_timer(&dispatch_timer, jiffies + msecs_to_jiffies(200));
+    if(nTickets == 0) // nTickets being zero suggests there is no registered processes.
+        return;
+
+    #ifdef DEBUG
+    printk("wake up dispatch kthread...\n" );
+    #endif
+
+    /* wake up the lottery scheduling kthread */
+    wake_up_process(dispatch_kthread);
 }
 
 /* executes a context switch */
