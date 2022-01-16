@@ -165,6 +165,21 @@ pid 3470, with 10 tickets: computing lucas(44) took 76.61 seconds.
 pid 3465, with 5 tickets: computing lucas(44) took 81.10 seconds.
 ```
 
+Even results like this is still acceptable.
+```console
+[cs452@localhost scheduler]$ ./lexus-test3.sh 
+[cs452@localhost scheduler]$ pid 6168, with 20 tickets: computing lucas(44) took 10.93 seconds.
+pid 6167, with 550 tickets: computing lucas(44) took 10.95 seconds.
+pid 6170, with 600 tickets: computing lucas(44) took 21.53 seconds.
+pid 6165, with 250 tickets: computing lucas(44) took 32.70 seconds.
+pid 6163, with 100 tickets: computing lucas(44) took 43.73 seconds.
+pid 6164, with 5 tickets: computing lucas(44) took 54.83 seconds.
+pid 6166, with 50 tickets: computing lucas(44) took 65.50 seconds.
+pid 6169, with 10 tickets: computing lucas(44) took 73.26 seconds.
+```
+
+But even in results like this, we still can see that processes with more tickets are in general faster than processes with fewer tickets. In addition, when your results do not seem to be reasonable, run the test multiple times.
+
 # Submission
 
 Due: 23:59pm, Feburary 1st, 2022. Late submission will not be accepted/graded.
