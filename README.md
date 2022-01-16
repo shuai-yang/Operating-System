@@ -1,10 +1,14 @@
 # Overview
 
-In this assignment, we will write a Linux kernel module called lexus. You should still the cs452 VM which you used for your p1, as loading and unloading the kernel module requires the root privilege.
+In this assignment, we will write a Linux kernel module called lexus. You should still use the cs452 VM which you used for your p1, as loading and unloading the kernel module requires the root privilege.
 
 ## Important Notes
 
 You MUST build against the kernel version (3.10.0-1160.el7.x86\_64), which is the default version of the kernel installed on the cs452 VM. For this assignment, your should only allocate one single core to your VM.
+
+## Book References
+
+Operating Systems: Three Easy Pieces: [Chapter 9: Lottery Scheduling](https://pages.cs.wisc.edu/~remzi/OSTEP/cpu-sched-lottery.pdf)(as know as "Scheduling: Proportional Share").
 
 # Specification
 
@@ -33,9 +37,38 @@ A testing program (test-lexus.c) and corresponding testing scripts (lexus-test\*
 
 ## Related Kernel APIs
 
+I used the following APIs. 
+  - slab memory allocation and reclaim: The Linux kernel has a memory manager called the slab memory manager, or the slab allocator. The slab allocator is very suitable if you want to allocate data structures of the same type. For example, you keep creating processes and killing processes, then you may need to allocate and de-allocate the struct task\_struct a lot. The slab allocator provides optimization for such use cases. To use slab, we first call kmem\_cache\_create() to reserve a memory pool from the slab, this is done in lexus\_init(), which means we reserve this memory pool when the kernel module is loaded. The code is:
+```c
+	/* allocate a memory pool from the slab memory management system to accommodate all lexus_task_struct instances */
+	task_cache = kmem_cache_create("lexus_task_cache", sizeof(struct lexus_task_struct), 0, SLAB_HWCACHE_ALIGN, NULL);
+```
+
+Here task\_cache is a global variable defined in lexus.c:
+
+```c
+/* cache for lexus_task_struct slab allocation */
+static struct kmem_cache *task_cache;
+```
+
+And then in lexus\_exit(), we call kmem\_cache\_destroy() to free the memory pool:
+```c
+	/* free the memory pool */
+	kmem_cache_destroy(task_cache);
+
+```
+
+This means the reserved memory pool will be released once we unload the kernel module. Both kmem\_cache\_create() and kmem\_cache\_destroy() are called in the starter code and you do not need to create any of these two. However, the above code snippet tells us, when the module is loaded, there is a memory pool called task\_cache, which serves struct of lexus\_task\_struct, and thus anytime you need to allocate memory for a struct lexus\_task\_struct, you should always allocate from this memory pool. And its APIs are:
+
+```c
+void \*kmem\_cache\_alloc(struct kmem\_cache \*, gfp\_t);
+void kmem\_cache\_free(struct kmem\_cache \*, void \*);
+```
+
+When calling kmem\_cache\_alloc() in this assignment, the first parameter is the aforementioned task\_cache, and the second parameter is the same flag you used in the previous assignment: GFP\_KERNEL. This function returns a pointer which points to the address of the allocated memory. You later on will pass this pointer to kmem\_cache\_free() (as the second parameter) when you release the memory, and first parameter of kmem\_cache\_free(), is the same to the first parameter of kmem\_cache\_alloc(), which is task\_cache. Given the fact that the reserved memory pool is specifically for struct lexus\_task\_struct, you can just define a struct lexus\_task\_struct pointer, and assign the return value of kmem\_cache\_alloc() to this pointer.
+
   - list manipulation: to be added soon.
   - spin locks to protect the list: to be added soon.
-  - slab memory allocation and reclaim: to be added soon.
   - adjusting scheduling priority: to be added soon.
 
 ## Expected Results
@@ -64,10 +97,6 @@ pid 7025, with 5 tickets: computing lucas(42) took 32.12 seconds.
 ```
 
 Note that the test takes some time, thus do not panic when you do not see the results right after typing the commands. From the above results, it can be seen that when all processes are trying to compute lucas number 42, processes with more tickets finish faster. Also note, while loading and unloading the kernel module requires the root privilege, running these tests does not require special privileges.
-
-# Book References
-
-Operating Systems: Three Easy Pieces: [Chapter 9: Lottery Scheduling](https://pages.cs.wisc.edu/~remzi/OSTEP/cpu-sched-lottery.pdf)(as know as "Scheduling: Proportional Share").
 
 # Submission
 
