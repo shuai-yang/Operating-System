@@ -106,8 +106,7 @@ int lexus_schedule(void *data)
 	return 0;
 }
 
-static long lexus_dev_ioctl(struct file *filp,
-                          unsigned int ioctl, unsigned long arg)
+static long lexus_dev_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	return 0;
 }
