@@ -235,13 +235,13 @@ Grade: /100
 
 - [ 90 pts] Functional Requirements:
   - Process registering and unregistering are successful. /20
-   - If your lottery scheduling system works as expected, you do not need to prove this; otherwise, you need to provide evidence proving your registering and unregistering are successful.
+    - If your lottery scheduling system works as expected, you do not need to prove this; otherwise, you need to provide evidence proving your registering and unregistering are successful.
   - Lottery scheduling produces reasonable scheduling results. Grader will test this using the testing scripts, but you should also include your testing results in the README file.
-   - lexus-test1.sh produces reasonable results. /20
-   - lexus-test2.sh produces reasonable results. /20
-   - lexus-test3.sh produces reasonable results. /20
+    - lexus-test1.sh produces reasonable results. /20
+    - lexus-test2.sh produces reasonable results. /20
+    - lexus-test3.sh produces reasonable results. /20
   - Module can be installed and removed without crashing the system: /10
-   - You won't get these points if your module doesn't implement any of the above functional requirements.
+    - You won't get these points if your module doesn't implement any of the above functional requirements.
 
 - [10 pts] Documentation:
   - README.md file (replace this current README.md with a new one using the README template. You do not need to check in this current README file.)
