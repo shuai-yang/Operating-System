@@ -51,7 +51,7 @@ I used the following APIs.
 static struct lexus_task_struct lexus_task_struct;
 ```
 
-struct lexus\_task\_struct has a field called struct list\_head list, given that struct lexus\_task\_struct lexus\_task\_struct is a global variable, its list field is actually representing a global list.The Linux kernel provides a unique way for you to add a node into this list, assume you have a struct lexus\_task\_struct pointer called node, and you want to add node into this global list, then you can use:
+struct lexus\_task\_struct has a field called struct list\_head list, given that struct lexus\_task\_struct lexus\_task\_struct is a global variable, its list field is actually representing a global list. The Linux kernel provides a unique way for you to add a node into this list, assume you have a struct lexus\_task\_struct pointer called node, and you want to add node into this global list, then you can use:
 
 ```c
 list_add(&(node->list), &(lexus_task_struct.list));
