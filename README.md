@@ -51,7 +51,7 @@ I used the following APIs.
 static struct lexus_task_struct lexus_task_struct;
 ```
 
-struct lexus\_task\_struct has a field called struct list\_head list, given that struct lexus\_task\_struct lexus\_task\_struct is a global variable, its list field is actually representing a global list.the Linux kernel provides a unique way for you to add a node into this list, assume you have a struct lexus\_task\_struct pointer called node, and you want to add node into this global list, then you can use:
+struct lexus\_task\_struct has a field called struct list\_head list, given that struct lexus\_task\_struct lexus\_task\_struct is a global variable, its list field is actually representing a global list.The Linux kernel provides a unique way for you to add a node into this list, assume you have a struct lexus\_task\_struct pointer called node, and you want to add node into this global list, then you can use:
 
 ```c
 list_add(&(node->list), &(lexus_task_struct.list));
@@ -144,7 +144,7 @@ The winner here will be an integer in between 0 and 888-1. Note that your code s
 Three testing scripts are provided, when running these test scripts, this is the expected results:
 
 ```console
-[cs452@localhost scheduler]$ ./lexus-test.sh
+[cs452@localhost scheduler]$ ./lexus-test1.sh
 [cs452@localhost scheduler]$ pid 6906, with 250 tickets: computing lucas(42) took 6.20 seconds.
 pid 6904, with 100 tickets: computing lucas(42) took 10.16 seconds.
 pid 6905, with 50 tickets: computing lucas(42) took 11.50 seconds.
