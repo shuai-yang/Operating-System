@@ -155,7 +155,7 @@ The above code will tell the CFS scheduler that this process now has a low prior
     sched_setscheduler(node, SCHED_FIFO, &sparam);
 ```
 The above code will first wake up the chosen process, and tell the CFS scheduler that this process now has a high priority - any task running on SCHED\_FIFO will hold the CPU for as long as the application needs.
-  - wake\_up\_process(). As the name suggests, this function wakes up a process. Note that this function take a *struct task\_struct* as a parameter, not a *struct lexus\_task\_struct*. Your scheduling function (i.e., lexus\_schedule()) will call this function to wake up the chosen process. The lexus\_exit() function will call this function to wake up the dispatching thread so it can get ready to exit.
+  - wake\_up\_process(). As the name suggests, this function wakes up a process. Note that this function take a *struct task\_struct* pointer as a parameter, not a *struct lexus\_task\_struct* pointer. Your scheduling function (i.e., lexus\_schedule()) will call this function to wake up the chosen process. The lexus\_exit() function will call this function to wake up the dispatching thread so it can get ready to exit.
   - let the dispatching thread sleep: once the dispatching thread has run the lottery algorithm and chosen a process, the dispatching thread itself should go to sleep, and get woken up when the timer goes off again. The following two lines let the dispatching thread go to sleep:
 
 ```c
