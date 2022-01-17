@@ -2,6 +2,12 @@
 
 In this assignment, we will write a Linux kernel module called lexus. You should still use the cs452 VM which you used for your p1, as loading and unloading the kernel module requires the root privilege.
 
+## Learning Objectives
+
+ - Get familiar with another frequently used system call function: the ioctl() system call.
+ - Have a better understanding of the lottery scheduling algorithm.
+ - Learn the basics of the Linux CPU Scheduler APIs and learn how priorities affect process performance.
+
 ## Important Notes
 
 You MUST build against the kernel version (3.10.0-1160.el7.x86\_64), which is the default version of the kernel installed on the cs452 VM. For this assignment, your should only allocate one single core to your VM.
@@ -20,9 +26,22 @@ Your scheduler will work as a kernel module. Processes in a Linux system are by 
 
 The starter code already provides you with the code for a kernel module. 
 
-What this module currently does is: create a file called /dev/lexus, which provides an inteface for applications to communicate with the kernel module. In this assignment, the only way to communicate between applications and the kernel module, is applications issue ioctl() system calls to this device file (i.e., /dev/lexus), and the kernel module will handle these ioctl commands. The two commands we need to support are: register and unregister. Applications who want to be managed by our lottery scheduling should issue a register command to /dev/lexus; registered applications who want to get out should issue an unregister command.
+What this module currently does is: create a file called /dev/lexus, which provides an inteface for applications to communicate with the kernel module. In this assignment, the only way to communicate between applications and the kernel module, is applications issue ioctl() system calls to this device file (i.e., /dev/lexus), and the kernel module will handle these ioctl commands. The two commands we need to support are: LEXUS\_REGISTER and LEXUS\_UNREGISTER. Applications who want to be managed by our lottery scheduling should issue a LEXUS\_REGISTER command to /dev/lexus, so as to register themselves into our lottery scheduling system; registered applications who want to get out should issue a LEXUS\_UNREGISTER command, so that we do not manage them anymore.
 
-The starter code includes a function called dispatch\_timer\_callback(). This function sets a timer which goes off every 200 milliseconds, and when the timer goes off, this function wakes up the lottery scheduling thread, which runs lexus\_schedule() to hold a lottery and choose a new task based on the lottery result.
+The starter code includes a function called dispatch\_timer\_callback(). This function sets a timer which goes off every 200 milliseconds, and when the timer goes off, this function wakes up the lottery scheduling thread, which runs lexus\_schedule() to hold a lottery and choose a new task based on the lottery result. lexus\_schedule() is the function you are going to implement and is the function you are going to spend most of your time on in this assignment.
+
+A testing program (test-lexus.c) and corresponding testing scripts (lexus-test\*.sh) are also provided. The test scripts start a number of the test program simultaneously, and pass different parameters to the testing program. Each testing program will run as a seperate process, which holds a number of tickets. Following is an example - lexus-test1.sh, this script tries to launch three processes, each runs the test program - test-lexus, each of the three processes attempts to accomplish the same task, which is calcuating lucas number 44 - what lucas numbers are is not important to you, you just need to know that it is a CPU-intensive computation, and our intention here is the make sure all processes attempt to do the same computation. The example here shows, process 1 will have 100 tickets, process 2 will have 50 tickets, process 3 will have 250 tickets. 
+
+```console
+[cs452@localhost scheduler]$ cat lexus-test1.sh 
+#!/bin/bash
+
+./test-lexus 100 44&
+./test-lexus 50 44&
+./test-lexus 250 44&
+```
+
+Based on the lottery scheduling, when every process tries to complete the same task, processes which hold more tickets of course will be more likely to be scheduled, and thus are expected to finish faster. Therefore, when running the above script, process 3 will complete first, process 1 will complete next, process 2 will complete last. The results provided in the "Expected Results" section of this README shows exactly that.
 
 ## Functions You Need to Implement
 
@@ -32,7 +51,16 @@ You need to implement the following 4 functions in the kernel module:
   - lexus\_dev\_ioctl(): this function will be called when applications issue commands via the ioctl system call. Applications do not call lexus\_register()/lexus\_unregister() directly, they send ioctl commands to the kernel module, which handles these commands via this lexus\_dev\_ioctl() function and call the reigster/unregister functions on behalf of applications.
   - lexus\_schedule(): this is the main scheduling function of the lottery scheduling system, this function will be called every 200 milliseconds. Refer to the book chapter for how your lottery scheduling should be implemented.
 
-A testing program (test-lexus.c) and corresponding testing scripts (lexus-test\*.sh) are also provided. The test scripts start a number of the test program simultaneously, and pass different parameters to the testing program. Each testing program will run as a seperate process, which holds a number of tickets. When every process tries to complete the same task, processes which hold more tickets of course will be more likely to be scheduled, and thus are expected to finish faster, and this complies with the basic idea of lottery scheduling.
+You should implement lexus\_dev\_ioctl() first, and then implement lexus\_register(), lexus\_unregister(), your final step should be implementing lexus\_schedule().
+ - In your lexus\_dev\_ioctl(), you either call lexus\_register() or call lexus\_unregister(), depending on which command you receive from the application via the ioctl() system call. Eventually the command will be passed from the user-space ioctl() system call to the kernel space, and it will be the second parameter of your lexus\_dev\_ioctl():
+
+```c
+static long lexus_dev_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
+```
+
+The second parameter of this function, which is *ioctl*, is the command number, which will be either 1 or 2, but instead of using numbers, you are recommended to use LEXUS\_REGISTER or LEXUS\_UNREGISTER, as we define in lexus.h that LEXUS\_REGISTER is command 1, and LEXUS\_UNREGISTER is command 2.
+
+Once you complete your implemention of lexus\_dev\_ioctl(), you should test to see, when applications try to register, does you lexus\_register() get called; when applications try to unregister, does your lexus\_unregister() get called? If yes, then you move on to implement lexus\_register() and lexus\_unregister().
 
 ## Predefined Data Structures, Global Variables, and Provided Helper Functions
   - struct lexus\_task\_struct: each instance of this data structure is representing a process; the Linux kernel defines struct task\_struct, each of such struct represents a process in the Linux kernel. lexus\_task\_struct is a wrapper of task\_struct, in other words, it include task\_struct, but also includes other fields necessary for the lottery scheduling.
@@ -190,8 +218,14 @@ Due: 23:59pm, Feburary 1st, 2022. Late submission will not be accepted/graded.
 Grade: /100
 
 - [ 90 pts] Functional Requirements:
-  - [20 pts] process registering and unregistering are successful. - if your lottery scheduling system works as expected, you do not need to prove this; otherwise, you need to provide evidence proving your registering and unregistering are successful.
-  - [70 pts] lottery scheduling works - producing reasonable scheduling results. Grader will test this using the testing scripts, but you should also include your testing results in the README file.
+  - Process registering and unregistering are successful. /20
+   - If your lottery scheduling system works as expected, you do not need to prove this; otherwise, you need to provide evidence proving your registering and unregistering are successful.
+  - Lottery scheduling produces reasonable scheduling results. Grader will test this using the testing scripts, but you should also include your testing results in the README file.
+   - lexus-test1.sh produces reasonable results. /20
+   - lexus-test2.sh produces reasonable results. /20
+   - lexus-test3.sh produces reasonable results. /20
+  - Module can be installed and removed without crashing the system: /10
+   - You won't get these points if your module doesn't implement any of the above functional requirements.
 
 - [10 pts] Documentation:
   - README.md file (replace this current README.md with a new one using the README template. You do not need to check in this current README file.)
