@@ -60,7 +60,23 @@ static long lexus_dev_ioctl(struct file *filp, unsigned int ioctl, unsigned long
 
 The second parameter of this function, which is *ioctl*, is the command number, which will be either 1 or 2, but instead of using numbers, you are recommended to use LEXUS\_REGISTER or LEXUS\_UNREGISTER, as we define in lexus.h that LEXUS\_REGISTER is command 1, and LEXUS\_UNREGISTER is command 2.
 
-Once you complete your implemention of lexus\_dev\_ioctl(), you should test to see, when applications try to register, does you lexus\_register() get called; when applications try to unregister, does your lexus\_unregister() get called? If yes, then you move on to implement lexus\_register() and lexus\_unregister().
+This is how applications send the ioctl commands, note that the third parameter of the ioctl is the information the application attempts to send along with the command.
+```c
+int register_process(struct lottery_struct lottery_info) {
+        int ret;
+        #ifdef DEBUG
+        printf("%lu: registering...\n", lottery_info.pid);
+        #endif
+        ret = ioctl(lexus_fd, LEXUS_REGISTER, &lottery_info);
+        if (ret == -1)
+                return -errno;
+        return 0;
+}
+```
+
+In the above example, lottery\_info is a struct which carries two fields, one is the process id, the other is the process' number of tickets. Note that this struct, which is the third parameter of the ioctl() system call, will be passed to your lexus\_dev\_ioctl() also as the third parameter, which is *arg*. Because we are passing the address of lottery\_info, therefore you can expect *arg* to be the address of lottery\_info, and remember from the previous project, you can not access a user-space address directly.
+
+Once you complete your implemention of lexus\_dev\_ioctl(), you should test to see, when applications try to register, does your lexus\_register() get called; when applications try to unregister, does your lexus\_unregister() get called? If yes, then you move on to implement lexus\_register() and lexus\_unregister(). And then implement lexus\_schedule().
 
 ## Predefined Data Structures, Global Variables, and Provided Helper Functions
   - struct lexus\_task\_struct: each instance of this data structure is representing a process; the Linux kernel defines struct task\_struct, each of such struct represents a process in the Linux kernel. lexus\_task\_struct is a wrapper of task\_struct, in other words, it include task\_struct, but also includes other fields necessary for the lottery scheduling.
