@@ -19,7 +19,11 @@ MODULE_DESCRIPTION("CS452 Lexus");
 
 //#define DEBUG 1 /* Note: uncomment this line so you can see debug messages in /var/log/messages, or when you run dmesg */
 
+/* this integers tracks how many number of tickets we have in total */
 unsigned long nTickets = 0;
+
+/* this variable is the timer, which helps us to call your lexus_schedule() every 200 millisecond. 
+ * you don't need to use this variable in the four functions you implement. */
 static struct timer_list dispatch_timer;
 
 /* each lexus_task_struct represents one process in the lottery scheduling system */
@@ -37,8 +41,8 @@ static struct lexus_task_struct lexus_task_struct;
 /* the currently running lexus task */
 static struct lexus_task_struct *lexus_current;
 
-/* spinlock to protect the linked list */
-static spinlock_t list_lock;
+/* spinlock to protect the linked list, and the global variables defined in this kernel module */
+static spinlock_t lexus_lock;
 
 /* dispatch kernel thread */
 static struct task_struct *dispatch_kthread;
@@ -63,8 +67,8 @@ void free_lexus_list(void) {
     unsigned long flags;
     spin_lock_irqsave(&lexus_lock, flags);
     /* You can just treat this list_for_each_safe() as a for loop:
- *      * for (p = lexus_task_struct.list->next; p != lexus_task_struct.list; p = p->next), 
- *           * you can ignore n, it's a temporary pointer used inside the loop. */
+     * for (p = lexus_task_struct.list->next; p != lexus_task_struct.list; p = p->next), 
+     * you can ignore n, it's a temporary pointer used inside the loop. */
     list_for_each_safe(p, n, &lexus_task_struct.list) {
         tmp = list_entry(p, struct lexus_task_struct, list);
         list_del(p);
@@ -81,6 +85,20 @@ void lexus_register(struct lottery_struct lottery){
 void lexus_unregister(struct lottery_struct lottery){
 }
 
+/* executes a context switch: pick a task and dispatch it to the Linux CFS scheduler */
+int lexus_schedule(void *data)
+{
+	return 0;
+}
+
+/* handle ioctl system calls */
+static long lexus_dev_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
+{
+	return 0;
+}
+
+/* gets called when the timer goes off, we then reset the timer so as to make sure
+ * this function gets called periodically - every 200 milliseconds. */
 void dispatch_timer_callback(unsigned long data)
 {
     #ifdef DEBUG
@@ -98,17 +116,6 @@ void dispatch_timer_callback(unsigned long data)
 
     /* wake up the lottery scheduling kthread */
     wake_up_process(dispatch_kthread);
-}
-
-/* executes a context switch */
-int lexus_schedule(void *data)
-{
-	return 0;
-}
-
-static long lexus_dev_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
-{
-	return 0;
 }
 
 static const struct file_operations lexus_chardev_ops = {
@@ -137,6 +144,7 @@ int __init lexus_init(void)
 	printk("<1> lexus: loading.\n");
 	#endif
 
+	/* creating the device file /dev/lexus */
 	r = misc_register(&lexus_dev);
 	if (r) {
 		printk(KERN_ERR "lexus: misc device register failed\n");
@@ -154,7 +162,7 @@ int __init lexus_init(void)
 	dispatch_kthread = kthread_create(lexus_schedule, NULL, "lexus_dispatch");
 
 	/* initialize the spin lock */
-	spin_lock_init(&list_lock);
+	spin_lock_init(&lexus_lock);
 
 	/* setup your timer to call dispatch_timer_callback */
 	setup_timer(&dispatch_timer, dispatch_timer_callback, 0);
@@ -185,7 +193,9 @@ void __exit lexus_exit(void)
 	/* free the memory allocated for each lexus_task_struct */
 	free_lexus_list();
 
+	/* removing the device file /dev/lexus */
 	misc_deregister(&lexus_dev);
+
 	#ifdef DEBUG
 	printk("<1> lexus: unloaded.\n");
 	#endif
