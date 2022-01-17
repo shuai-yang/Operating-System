@@ -12,9 +12,9 @@ Operating Systems: Three Easy Pieces: [Chapter 9: Lottery Scheduling](https://pa
 
 # Specification
 
-Your will develop a lottery scheduler for a single core processor in a Linux system. Please refer to the book chapter to have a basic understanding of how lottery scheduling works.
+You will develop a lottery scheduler for a single core processor in a Linux system. Please refer to the book chapter to have a basic understanding of how lottery scheduling works.
 
-Your scheduler will work as a kernel module. Processes in a Linux system are by default scheduled by the default Linux CFS scheduler. In this assignment, we do not intend to take over the default CFS scheduler, rather we try to maintain a seperate scheduler and based on our lottery scheduling policy, we choose tasks we want to run and increase their priority, and then dispatch the chosen tasks to the CFS scheduler.
+Your scheduler will work as a kernel module. Processes in a Linux system are by default scheduled by the default Linux CFS (Completely Fair Scheduling) scheduler. In this assignment, we do not intend to take over the default CFS scheduler, rather we try to maintain a seperate scheduler and based on our lottery scheduling policy, we choose tasks we want to run and increase their priority, and then dispatch the chosen tasks to the CFS scheduler.
 
 ## The Starter Code
 
