@@ -12,6 +12,8 @@ In this assignment, we will write a Linux kernel module called lexus. You should
 
 You MUST build against the kernel version (3.10.0-1160.el7.x86\_64), which is the default version of the kernel installed on the cs452 VM. For this assignment, your should only allocate one single core to your VM.
 
+Also note that in this README file, we use the term process and task interchangeably. The term process and thread in this assignment also has the same meaning. Later on in this semester you will learn that these two terms are different, but as of now, we do not touch the different side of these two terms.
+
 ## Book References
 
 Operating Systems: Three Easy Pieces: [Chapter 9: Lottery Scheduling](https://pages.cs.wisc.edu/~remzi/OSTEP/cpu-sched-lottery.pdf) (also known as "Scheduling: Proportional Share").
@@ -28,7 +30,7 @@ The starter code already provides you with the code for a kernel module.
 
 What this module currently does is: create a file called /dev/lexus, which provides an inteface for applications to communicate with the kernel module. In this assignment, the only way to communicate between applications and the kernel module, is applications issue ioctl() system calls to this device file (i.e., /dev/lexus), and the kernel module will handle these ioctl commands. The two commands we need to support are: LEXUS\_REGISTER and LEXUS\_UNREGISTER. Applications who want to be managed by our lottery scheduling should issue a LEXUS\_REGISTER command to /dev/lexus, so as to register themselves into our lottery scheduling system; registered applications who want to get out should issue a LEXUS\_UNREGISTER command, so that we do not manage them anymore.
 
-The starter code includes a function called dispatch\_timer\_callback(). This function sets a timer which goes off every 200 milliseconds, and when the timer goes off, this function wakes up the lottery scheduling thread, which runs lexus\_schedule() to hold a lottery and choose a new task based on the lottery result. lexus\_schedule() is the function you are going to implement and is the function you are going to spend most of your time on in this assignment.
+The starter code includes a function called dispatch\_timer\_callback(). This function sets a timer which goes off every 200 milliseconds, and when the timer goes off, this function wakes up the lottery scheduling thread, which runs lexus\_schedule() to hold a lottery and choose a new task based on the lottery result. lexus\_schedule() is the function you are going to implement and is the function you are going to spend most of your time on in this assignment. In the remainder of this README file, we will also refer to this lottery scheduling thread as the dispatching thread.
 
 A testing program (test-lexus.c) and corresponding testing scripts (lexus-test\*.sh) are also provided. The test scripts start a number of the test program simultaneously, and pass different parameters to the testing program. Each testing program will run as a seperate process, which holds a number of tickets. Following is an example - lexus-test1.sh, this script tries to launch three processes, each runs the test program - test-lexus, each of the three processes attempts to accomplish the same task, which is calcuating lucas number 44 - what lucas numbers are is not important to you, you just need to know that it is a CPU-intensive computation, and our intention here is the make sure all processes attempt to do the same computation. The example here shows, process 1 will have 100 tickets, process 2 will have 50 tickets, process 3 will have 250 tickets. 
 
@@ -152,8 +154,8 @@ The above code will tell the CFS scheduler that this process now has a low prior
     sparam.sched_priority=99;
     sched_setscheduler(node, SCHED_FIFO, &sparam);
 ```
-The above code will first wakp the chosen process, and tell the CFS scheduler that this process now has a high priority - any task running on SCHED\_FIFO will hold the CPU for as long as the application needs.
-  - wake\_up\_process(). As the name suggests, this function wakes up a process. Note that this function take a *struct task\_struct* as a parameter, not a *struct lexus\_task\_struct*. The timer will call this function to wake up the dispatching thread; the dispatching thread will call this function to wake up the chosen process, the lexus\_exit() function will call this function to wake up the dispatch thread so it can get ready to exit.
+The above code will first wake up the chosen process, and tell the CFS scheduler that this process now has a high priority - any task running on SCHED\_FIFO will hold the CPU for as long as the application needs.
+  - wake\_up\_process(). As the name suggests, this function wakes up a process. Note that this function take a *struct task\_struct* as a parameter, not a *struct lexus\_task\_struct*. Your scheduling function (i.e., lexus\_schedule()) will call this function to wake up the chosen process. The lexus\_exit() function will call this function to wake up the dispatching thread so it can get ready to exit.
   - let the dispatching thread sleep: once the dispatching thread has run the lottery algorithm and chosen a process, the dispatching thread itself should go to sleep, and get woken up when the timer goes off again. The following two lines let the dispatching thread go to sleep:
 
 ```c
