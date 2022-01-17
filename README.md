@@ -46,7 +46,7 @@ Based on the lottery scheduling, when every process tries to complete the same t
 ## Functions You Need to Implement
 
 You need to implement the following 4 functions in the kernel module:
-  - lexus\_register(): this function will be called when applications want to register themselves into the lottery scheduling system. In this function you should allocate memory for a struct lexus\_task\_struct instance, initialize it, and add it into the global list lexus\_task\_struct.list - described below in the "Related Kernel APIs" section.
+  - lexus\_register(): this function will be called when applications want to register themselves into the lottery scheduling system. In this function you should allocate memory for a *struct lexus\_task\_struct* instance, initialize it, and add it into the global list lexus\_task\_struct.list - described below in the "Related Kernel APIs" section.
   - lexus\_unregister(): this function will be called when applications want to unregister themselves from the lottery scheduling system. In this function you should free the memory allocated in lexus\_register(), and remove the task from the global list.
   - lexus\_dev\_ioctl(): this function will be called when applications issue commands via the ioctl system call. Applications do not call lexus\_register()/lexus\_unregister() directly, they send ioctl commands to the kernel module, which handles these commands via this lexus\_dev\_ioctl() function and call the reigster/unregister functions on behalf of applications.
   - lexus\_schedule(): this is the main scheduling function of the lottery scheduling system, this function will be called every 200 milliseconds. Refer to the book chapter for how your lottery scheduling should be implemented.
@@ -74,28 +74,28 @@ int register_process(struct lottery_struct lottery_info) {
 }
 ```
 
-In the above example, lottery\_info is a struct which carries two fields, one is the process id, the other is the process' number of tickets. Note that this struct, which is the third parameter of the ioctl() system call, will be passed to your lexus\_dev\_ioctl() also as the third parameter, which is *arg*. Because we are passing the address of lottery\_info, therefore you can expect *arg* to be the address of lottery\_info, and remember from the previous project, in kernel space, you can not access a user-space address directly.
+In the above example, lottery\_info is a *struct lottery\_struct* variable which carries two fields, one is the process id, the other is the process's number of tickets. Note that this struct, which is the third parameter of the ioctl() system call, will be passed to your lexus\_dev\_ioctl() also as the third parameter, which is *arg*. Because we are passing the address of lottery\_info, therefore you can expect *arg* to be the address of lottery\_info, and remember from the previous project, in kernel space, you can not access a user-space address directly.
 
 Once you complete your implemention of lexus\_dev\_ioctl(), you should test to see, when applications try to register, does your lexus\_register() get called; when applications try to unregister, does your lexus\_unregister() get called? If yes, then you move on to implement lexus\_register() and lexus\_unregister(). And then implement lexus\_schedule().
 
 ## Predefined Data Structures, Global Variables, and Provided Helper Functions
-  - struct lexus\_task\_struct: each instance of this data structure is representing a process; the Linux kernel defines struct task\_struct, each of such struct represents a process in the Linux kernel. lexus\_task\_struct is a wrapper of task\_struct, in other words, it include task\_struct, but also includes other fields necessary for the lottery scheduling.
-  - struct lottery\_struct: this data structure, defined in lexus.h, is used by the application to pass parameters to the kernel module; because both applications and the kernel module includes "lexus.h", thus the kernel module also knows this data structure, and thus you can use it in your kernel module. This allows you to pass information from the application to the kernel module.
+  - *struct lottery\_struct*: The lottery\_info variable we just mentioned, is an instance of this struct, which is defined in lexus.h. It is used by the application to pass parameters to the kernel module; because both applications and the kernel module includes "lexus.h", thus the kernel module also knows this data structure, and thus you can use it in your kernel module. This allows you to pass information from the application to the kernel module.
+  - *struct lexus\_task\_struct*: each instance of this data structure is representing a process; the Linux kernel defines *struct task\_struct*, each of such struct represents a process in the Linux kernel. *struct lexus\_task\_struct* is a wrapper of *struct task\_struct*, in other words, it includes *struct task\_struct*, but also includes other fields necessary for the lottery scheduling.
   - unsigned long nTickets: this integer nTickets represents how many tickets in total we have in the lottery scheduling system, at first, it is initialized to 0; you should increment this number when you have tasks get registered, and decrement this number when tasks unregister.
-  - struct task\_struct\* find\_task\_by\_pid(unsigned int pid); given a pid, this function returns a pointer pointing to its associated struct task\_struct.
+  - struct task\_struct\* find\_task\_by\_pid(unsigned int pid); given a pid, this function returns a pointer pointing to its associated *struct task\_struct*. You will want to use this function in your lexus\_register() function, so that you can associate your *struct lexus\_task\_struct* with the process's *struct task\_struct*.
 
 ## Related Kernel APIs
 
 I used the following APIs. 
 
-  - list manipulation: In this assignment, there is one global list, and only one, which is used to connect all struct lexus\_task\_struct instances. This is how it is implemented: the kernel module defines a global variable called struct lexus\_task\_struct lexus\_task\_struct, as below:
+  - list manipulation: In this assignment, there is one global list, and only one, which is used to connect all *struct lexus\_task\_struct* instances. This is how it is implemented: the kernel module defines a global variable called *struct lexus\_task\_struct lexus\_task\_struct*, as below:
 
 ```c
 /* use this global variable to track all registered tasks, by adding into its list */
 static struct lexus_task_struct lexus_task_struct;
 ```
 
-struct lexus\_task\_struct has a field called struct list\_head list, given that struct lexus\_task\_struct lexus\_task\_struct is a global variable, its list field is actually representing a global list. The Linux kernel provides a unique way for you to add a node into this list, assume you have a struct lexus\_task\_struct pointer called node, and you want to add node into this global list, then you can use:
+*struct lexus\_task\_struct* has a field called *struct list\_head list*, given that *struct lexus\_task\_struct lexus\_task\_struct* is a global variable, its list field is actually representing a global list. The Linux kernel provides a unique way for you to add a node into this list, assume you have a *struct lexus\_task\_struct* pointer called *node*, and you want to add *node* into this global list, then you can use:
 
 ```c
 list_add(&(node->list), &(lexus_task_struct.list));
@@ -153,7 +153,7 @@ The above code will tell the CFS scheduler that this process now has a low prior
     sched_setscheduler(node, SCHED_FIFO, &sparam);
 ```
 The above code will first wakp the chosen process, and tell the CFS scheduler that this process now has a high priority - any task running on SCHED\_FIFO will hold the CPU for as long as the application needs.
-  - wake\_up\_process(). As the name suggests, this function wakes up a process. Note that this function take a struct task\_struct as a parameter, not a struct lexus\_task\_struct. The timer will call this function to wake up the dispatching thread; the dispatching thread will call this function to wake up the chosen process, the lexus\_exit() function will call this function to wake up the dispatch thread so it can get ready to exit.
+  - wake\_up\_process(). As the name suggests, this function wakes up a process. Note that this function take a *struct task\_struct* as a parameter, not a *struct lexus\_task\_struct*. The timer will call this function to wake up the dispatching thread; the dispatching thread will call this function to wake up the chosen process, the lexus\_exit() function will call this function to wake up the dispatch thread so it can get ready to exit.
   - let the dispatching thread sleep: once the dispatching thread has run the lottery algorithm and chosen a process, the dispatching thread itself should go to sleep, and get woken up when the timer goes off again. The following two lines let the dispatching thread go to sleep:
 
 ```c
