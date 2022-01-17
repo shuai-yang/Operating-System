@@ -128,7 +128,7 @@ Note that in the above example, p and n and temporary pointers, which are requir
     }
 ```
 
-  - spin locks to protect the list, and global variables. Any code which manipulates the list needs to be locked, so as to avoid thing like this to happen: while you are iterating over the list, someone deletes some node from the list, or adds a node to the list. This could cause chaos to the list. To have the protection, see the following example:
+  - spin locks to protect the list, and global variables. Any code which manipulates the list needs to be locked, so as to avoid things like this to happen: while you are iterating over the list, someone deletes some node from the list, or adds a node to the list. This could cause chaos to the list. To have the protection, see the following example:
 
 ```c
 unsigned long flags;
