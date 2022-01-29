@@ -21,30 +21,40 @@ int lucas(int n){
 
 double getMilliSeconds(void)
 {
-    struct timeval now;
-    gettimeofday(&now, (struct timezone *)0);
-    return (double) now.tv_sec*1000.0 + now.tv_usec/1000.0;
+	struct timeval now;
+	gettimeofday(&now, (struct timezone *)0);
+	return (double) now.tv_sec*1000.0 + now.tv_usec/1000.0;
 }
 
+/* when registration is successful, register_process return 0.
+ * otherwise, it returns -1. */
 int register_process(struct lottery_struct lottery_info) {
 	int ret;
 	#ifdef DEBUG
 	printf("%lu: registering...\n", lottery_info.pid);
 	#endif
 	ret = ioctl(lexus_fd, LEXUS_REGISTER, &lottery_info);
-	if (ret == -1)
-		return -errno;
+	/* on success, ioctl returns 0. */
+	if (ret!=0){
+		printf("ioctl fails\n");
+		return -1;
+	}
 	return 0;
 }
 
+/* when unregistration is successful, unregister_process return 0. 
+ * otherwise, it returns -1. */
 int unregister_process(struct lottery_struct lottery_info) {
 	int ret;
 	#ifdef DEBUG
 	printf("%lu: unregistering...\n", lottery_info.pid);
 	#endif
 	ret = ioctl(lexus_fd, LEXUS_UNREGISTER, &lottery_info); // the 3rd parameter must have "&".
-	if (ret == -1)
-		return -errno;
+	/* on success, ioctl returns 0. */
+	if (ret!=0){
+		printf("ioctl fails\n");
+		return -1;
+	}
 	return 0;
 }
 
