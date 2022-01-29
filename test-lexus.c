@@ -98,10 +98,15 @@ int main(int argc, char *argv[]) {
 	computing_time = getMilliSeconds() - start_time;
 	printf("pid %lu, with %lu tickets: computing lucas(%lu) took %4.2lf seconds.\n", pid, tickets, n, computing_time/1000.0);
 
-	unregister_process(tmp);
+	ret=unregister_process(tmp);
+	if(ret != 0){
+		printf("%lu: unable to unregister. \n", pid);
+		exit(1);
+	}
 	#ifdef DEBUG
 	printf("%lu: unregistered\n", pid);
 	#endif
+
 	close(lexus_fd);
 	return 0;
 }
