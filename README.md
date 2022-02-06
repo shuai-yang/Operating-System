@@ -26,7 +26,7 @@ Your scheduler will work as a kernel module. Processes in a Linux system are by 
 
 ## The Starter Code
 
-The starter code already provides you with the code for a kernel module. 
+The starter code already provides you with the code for a kernel module called lexus. To install the module, run *make* and then *sudo insmod lexus.ko*; to remove it, run *sudo rmmod lexus*. Yes, in rmmod, whether or not you specify *ko* does not matter; but in insmod, you must have that *ko*.
 
 What this module currently does is: create a file called /dev/lexus, which provides an inteface for applications to communicate with the kernel module. In this assignment, the only way to communicate between applications and the kernel module, is applications issue ioctl() system calls to this device file (i.e., /dev/lexus), and the kernel module will handle these ioctl commands. The two commands we need to support are: LEXUS\_REGISTER and LEXUS\_UNREGISTER. Applications who want to be managed by our lottery scheduling should issue a LEXUS\_REGISTER command to /dev/lexus, so as to register themselves into our lottery scheduling system; registered applications who want to get out should issue a LEXUS\_UNREGISTER command, so that we do not manage them anymore.
 
