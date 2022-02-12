@@ -22,7 +22,7 @@ Also note that in this README file, we use the term process and task interchange
 
 You will develop a lottery scheduler for a single core processor in a Linux system. Please refer to the book chapter to have a basic understanding of how lottery scheduling works.
 
-Your scheduler will work as a kernel module. Processes in a Linux system are by default scheduled by the default Linux CFS (Completely Fair Scheduling) scheduler. In this assignment, we do not intend to take over the default CFS scheduler, rather we try to maintain a seperate scheduler and based on our lottery scheduling policy, we choose tasks we want to run and increase their priority, and then dispatch the chosen tasks to the CFS scheduler.
+Your scheduler will work as a kernel module. Processes in a Linux system are by default scheduled by the default Linux CFS (Completely Fair Scheduling) scheduler. In this assignment, we do not intend to take over the default CFS scheduler, rather we try to maintain a separate scheduler and based on our lottery scheduling policy, we choose tasks we want to run and increase their priority, and then dispatch the chosen tasks to the CFS scheduler.
 
 ## The Starter Code
 
@@ -238,8 +238,8 @@ Due: 23:59pm, Feburary 1st, 2022. Late submission will not be accepted/graded.
 # Grading Rubric (Undergraduate and Graduate)
 Grade: /100
 
-- [ 90 pts] Functional Requirements:
-  - Process registering and unregistering are successful. /20
+- [ 80 pts] Functional Requirements:
+  - Process registering and unregistering are successful. /10
     - If your lottery scheduling system works as expected, you do not need to prove this; otherwise, you need to provide evidence proving your registering and unregistering are successful.
   - Lottery scheduling produces reasonable scheduling results. Grader will test this using the testing scripts, but you should also include your testing results in the README file.
     - lexus-test1.sh produces reasonable results. /20
@@ -247,7 +247,9 @@ Grade: /100
     - lexus-test3.sh produces reasonable results. /20
   - Module can be installed and removed without crashing the system: /10
     - You won't get these points if your module doesn't implement any of the above functional requirements.
-
+- [10 pts] Compiling:
+  - Each compiler warning will result in a 3-point deduction.
+  - You are not allowed to suppress warnings. (you won't get these points if your module doesn't implement any of the above functional requirements.)
 - [10 pts] Documentation:
   - README.md file (replace this current README.md with a new one using the README template. You do not need to check in this current README file.)
   - You are required to fill in every section of the README template, missing 1 section will result in a 2-point deduction.
