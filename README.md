@@ -172,7 +172,7 @@ while(!kthread_should_stop()) {
 }
 ```
 
-And we can see in lexus\_exit(), it calls kthread\_stop(dispatch\_kthread); that's when the dispatching thread finally gets out of this while loop and return.
+And we can see in lexus\_exit(), it calls kthread\_stop(dispatch\_kthread); that's when the dispatching thread finally gets out of this while loop and return. Note: because of the logic we are describing here, your lexue\_schedule() should not return as long as the module is loaded - otherwise, your system would crash upon unloading - because in that case, kthread\_stop(dispatch\_kthread) will be attempting to stop a non-existing thread.
 
   - get\_random\_bytes(). prototype: void get\_random\_bytes(void \*buf, int nbytes); This function returns the requested number of random bytes and stores them in a buffer. Below is an example of how to use this function, assuming your lottery system has 888 tickets in total.
 
