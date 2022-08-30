@@ -118,7 +118,7 @@ What if you want to delete a node, in this assignment, the only place you want t
     }
 ```
 
-The above code snippet will iterate the global list, and node will be each node, however, when deleting the node, we do not pass node as a parameter to list\_del. Instead of node, we pass the list field of node, which in the above code snippet, is p, to list\_del(). This is consistent to list\_add(), whose first parameter is also the list of a node. list\_for\_each\_safe() is a macro provided by the Linux kernel, this macro will be expanded as a for loop. Thus you can use break as needed. The above example just shows you how to iterate the list, but does not show you what you need to do in each iteration, apparently, when a process wants to unregister, it should remove its own node from the list, but should not remove other nodes from the list. In other words, you should get out of this loop as soon as you remove the node which is associated with the process which is trying to unregister.
+The above code snippet will iterate the global list, and node will be each node, however, when deleting the node, we do not pass node as a parameter to list\_del. Instead of node, we pass the list field of node, which in the above code snippet, is p, to list\_del(). This is consistent to list\_add(), whose first parameter is also the list of a node. list\_for\_each\_safe() is a macro provided by the Linux kernel, this macro will be expanded as a **for** loop. Thus you can use **break** as needed. The above example just shows you how to iterate the list, but does not show you what you need to do in each iteration, apparently, when a process wants to unregister, it should remove its own node from the list, but should not remove other nodes from the list. In other words, you should get out of this loop as soon as you remove the node which is associated with the process which is trying to unregister.
 
 Note that in the above example, p and n and temporary pointers, which are required for the list\_for\_each\_safe() and list\_entry() macros. Therefore, in this assignment, you are recommended to use these few lines whenever you want to iterate through this global this (once again, there is only one global list in this assignment):
 
@@ -233,7 +233,7 @@ In addition, when your results do not seem to be reasonable, run the test multip
 
 # Submission
 
-Due: 23:59pm, Feburary 1st, 2022. Late submission will not be accepted/graded.
+Due: 23:59pm, September 8th, 2022. Late submission will not be accepted/graded.
 
 # Grading Rubric (Undergraduate and Graduate)
 Grade: /100
@@ -251,5 +251,5 @@ Grade: /100
   - Each compiler warning will result in a 3-point deduction.
   - You are not allowed to suppress warnings. (you won't get these points if your module doesn't implement any of the above functional requirements.)
 - [10 pts] Documentation:
-  - README.md file (replace this current README.md with a new one using the README template. You do not need to check in this current README file.)
+  - README.md file (rename this current README file to README.orig and rename the README.template to README.md)
   - You are required to fill in every section of the README template, missing 1 section will result in a 2-point deduction.
