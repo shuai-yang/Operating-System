@@ -114,6 +114,7 @@ What if you want to delete a node, in this assignment, the only place you want t
     list_for_each_safe(p, n, &lexus_task_struct.list) {
 	/* node points to each lexus_task_struct in the list. */
         node = list_entry(p, struct lexus_task_struct, list);
+	/* add code here if you don't want to delete every node... */
         list_del(p);
     }
 ```
