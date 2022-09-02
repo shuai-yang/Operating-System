@@ -17,7 +17,7 @@ MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Jidong Xiao"); /* Note: change this line to your name! */
 MODULE_DESCRIPTION("CS452 Lexus");
 
-//#define DEBUG 1 /* Note: uncomment this line so you can see debug messages in /var/log/messages, or when you run dmesg */
+#define DEBUG 1 /* Note: uncomment this line so you can see debug messages in /var/log/messages, or when you run dmesg */
 
 /* this integers tracks how many number of tickets we have in total */
 unsigned long nTickets = 0;
@@ -88,6 +88,9 @@ void lexus_unregister(struct lottery_struct lottery){
 /* executes a context switch: pick a task and dispatch it to the Linux CFS scheduler */
 int lexus_schedule(void *data)
 {
+	while(!kthread_should_stop()){
+		printk(KERN_ERR "hello scheduler\n");
+	}
 	return 0;
 }
 
