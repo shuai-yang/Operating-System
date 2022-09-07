@@ -80,20 +80,24 @@ void free_lexus_list(void) {
 /* register a process into the lottery scheduling system */
 void lexus_register(struct lottery_struct lottery){
 	unsigned long flags;
-	struct lexus_task_struct *node = kmalloc(sizeof(struct lottery_struct), GFP_KERNEL);
-	node.list = lexus_task_struct.list;
-	node.task = find_task_by_pid(lottery.pid);
-	node.pid = lottery.pid;
-	node.state = READY;
+	struct lexus_task_struct *node;
+	printk("lexus_register() get called");
+	node = kmalloc(sizeof(lexus_task_struct), GFP_KERNEL);
+	node->list = lexus_task_struct.list;
+	node->task = find_task_by_pid(lottery.pid);
+	node->pid = lottery.pid;
+	node->tickets = lottery.tickets;
+	node->state = READY;
 	spin_lock_irqsave(&lexus_lock, flags);
 	list_add(&(node->list), &(lexus_task_struct.list));	
-	nTickets += lexus_task.tickets; 
+	nTickets += node->tickets; 
 	spin_unlock_irqrestore(&lexus_lock, flags);
 }
 
 /* unregister a process from the lottery scheduling system */
 void lexus_unregister(struct lottery_struct lottery){
 	struct list_head *p, *n;
+	printk("lexus_unregister() get called");
 	struct lexus_task_struct *node;
 	unsigned long flags;
 	spin_lock_irqsave(&lexus_lock, flags);
