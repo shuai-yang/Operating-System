@@ -104,14 +104,17 @@ void lexus_unregister(struct lottery_struct lottery){
 	list_for_each_safe(p, n, &lexus_task_struct.list){
 		/*node points to each lexus_task_struct in the list.*/
 		node = list_entry(p, struct lexus_task_struct, list);
-		
-		if(node == lexus_current){
-			node.state = READY;
+		if(node == (struct lexus_task_struct*)find_task_by_pid(lottery.pid)){
+			lexus_current = NULL;
+			nTickets -= node->tickets;
+			list_del(p);
 			break;
 		}	
-		list_del(p);
 	}
+	spin_unlock_irqrestore(&lexus_lock, flags);
+	kfree(node);
 }
+
 
 /* executes a context switch: pick a task and dispatch it to the Linux CFS scheduler */
 int lexus_schedule(void *data)
