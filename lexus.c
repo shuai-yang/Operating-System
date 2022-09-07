@@ -82,7 +82,7 @@ void lexus_register(struct lottery_struct lottery){
 	unsigned long flags;
 	struct lexus_task_struct *node;
 	printk("lexus_register() get called");
-	node = kmalloc(sizeof(lexus_task_struct), GFP_KERNEL);
+	node = kmalloc(sizeof(struct lexus_task_struct*), GFP_KERNEL);
 	node->list = lexus_task_struct.list;
 	node->task = find_task_by_pid(lottery.pid);
 	node->pid = lottery.pid;
