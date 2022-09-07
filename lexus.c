@@ -97,9 +97,9 @@ void lexus_register(struct lottery_struct lottery){
 /* unregister a process from the lottery scheduling system */
 void lexus_unregister(struct lottery_struct lottery){
 	struct list_head *p, *n;
-	printk("lexus_unregister() get called");
 	struct lexus_task_struct *node;
 	unsigned long flags;
+	printk("lexus_unregister() get called");
 	spin_lock_irqsave(&lexus_lock, flags);
 	list_for_each_safe(p, n, &lexus_task_struct.list){
 		/*node points to each lexus_task_struct in the list.*/
@@ -120,7 +120,7 @@ int lexus_schedule(void *data)
 		printk(KERN_ERR "hello scheduler\n");
 
 		if(winner is not current){
-			wake_up_process()
+			wake_up_process();
 		}
 	}	
 	return 0;
@@ -131,17 +131,18 @@ static long lexus_dev_ioctl(struct file *filp, unsigned int ioctl, unsigned long
 {
 	struct lottery_struct lottery_info;
 	if(ioctl == LEXUS_REGISTER){
-		if(copy_from_user(lottery_info, (char*)arg, sizeof(struct lottery_struct)) != 0){
+		if(copy_from_user(&lottery_info, (char*)arg, sizeof(struct lottery_struct)) != 0){
 			return -EFAULT;
 		}		
 		lexus_register(lottery_info);
 	}
 	if(ioctl == LEXUS_UNREGISTER){
-		if(copy_from_user(lottery_info, (char*)arg, sizeof(struct lottery_struct)) != 0){
+		if(copy_from_user(&lottery_info, (char*)arg, sizeof(struct lottery_struct)) != 0){
 			return -EFAULT;
 		}
 		lexus_unregister(lottery_info);
 	}
+	return 0;
 }
 
 /* gets called when the timer goes off, we then reset the timer so as to make sure
