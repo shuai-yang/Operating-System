@@ -14,7 +14,7 @@
 #include "lexus.h"
 
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Jidong Xiao"); /* Note: change this line to your name! */
+MODULE_AUTHOR("Shuai Yang"); /* Note: change this line to your name! */
 MODULE_DESCRIPTION("CS452 Lexus");
 
 #define DEBUG 1 /* Note: uncomment this line so you can see debug messages in /var/log/messages, or when you run dmesg */
@@ -79,10 +79,34 @@ void free_lexus_list(void) {
 
 /* register a process into the lottery scheduling system */
 void lexus_register(struct lottery_struct lottery){
+	unsigned long flags;
+	struct lexus_task_struct *node = kmalloc(sizeof(struct lottery_struct), GFP_KERNEL);
+	node.list = lexus_task_struct.list;
+	node.task = find_task_by_pid(lottery.pid);
+	node.pid = lottery.pid;
+	node.state = READY;
+	spin_lock_irqsave(&lexus_lock, flags);
+	list_add(&(node->list), &(lexus_task_struct.list));	
+	nTickets += lexus_task.tickets; 
+	spin_unlock_irqrestore(&lexus_lock, flags);
 }
 
 /* unregister a process from the lottery scheduling system */
 void lexus_unregister(struct lottery_struct lottery){
+	struct list_head *p, *n;
+	struct lexus_task_struct *node;
+	unsigned long flags;
+	spin_lock_irqsave(&lexus_lock, flags);
+	list_for_each_safe(p, n, &lexus_task_struct.list){
+		/*node points to each lexus_task_struct in the list.*/
+		node = list_entry(p, struct lexus_task_struct, list);
+		
+		if(node == lexus_current){
+			node.state = READY;
+			break;
+		}	
+		list_del(p);
+	}
 }
 
 /* executes a context switch: pick a task and dispatch it to the Linux CFS scheduler */
@@ -90,14 +114,30 @@ int lexus_schedule(void *data)
 {
 	while(!kthread_should_stop()){
 		printk(KERN_ERR "hello scheduler\n");
-	}
+
+		if(winner is not current){
+			wake_up_process()
+		}
+	}	
 	return 0;
 }
 
 /* handle ioctl system calls */
 static long lexus_dev_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
-	return 0;
+	struct lottery_struct lottery_info;
+	if(ioctl == LEXUS_REGISTER){
+		if(copy_from_user(lottery_info, (char*)arg, sizeof(struct lottery_struct)) != 0){
+			return -EFAULT;
+		}		
+		lexus_register(lottery_info);
+	}
+	if(ioctl == LEXUS_UNREGISTER){
+		if(copy_from_user(lottery_info, (char*)arg, sizeof(struct lottery_struct)) != 0){
+			return -EFAULT;
+		}
+		lexus_unregister(lottery_info);
+	}
 }
 
 /* gets called when the timer goes off, we then reset the timer so as to make sure
