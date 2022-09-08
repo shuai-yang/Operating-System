@@ -11,6 +11,7 @@
 #include <linux/random.h> /* for random number generator */
 #include <linux/miscdevice.h> /* for misc devices */
 #include <linux/pid.h> /* for pid_task */
+#include <linux/time.h>
 #include "lexus.h"
 
 MODULE_LICENSE("GPL v2");
@@ -82,7 +83,7 @@ void lexus_register(struct lottery_struct lottery){
 	unsigned long flags;
 	struct lexus_task_struct *node;
 	printk("lexus_register() get called");
-	node = kmalloc(sizeof(struct lexus_task_struct*), GFP_KERNEL);
+	node = kmalloc(sizeof(struct lexus_task_struct), GFP_KERNEL);
 	node->list = lexus_task_struct.list;
 	node->task = find_task_by_pid(lottery.pid);
 	node->pid = lottery.pid;
@@ -104,27 +105,74 @@ void lexus_unregister(struct lottery_struct lottery){
 	list_for_each_safe(p, n, &lexus_task_struct.list){
 		/*node points to each lexus_task_struct in the list.*/
 		node = list_entry(p, struct lexus_task_struct, list);
-		if(node == (struct lexus_task_struct*)find_task_by_pid(lottery.pid)){
+		if(node->pid == lottery.pid){
 			lexus_current = NULL;
 			nTickets -= node->tickets;
 			list_del(p);
+            kfree(node);
 			break;
 		}	
 	}
 	spin_unlock_irqrestore(&lexus_lock, flags);
-	kfree(node);
 }
 
 
 /* executes a context switch: pick a task and dispatch it to the Linux CFS scheduler */
 int lexus_schedule(void *data)
 {
+	struct sched_param sparam;
 	while(!kthread_should_stop()){
-		printk(KERN_ERR "hello scheduler\n");
-
-		if(winner is not current){
-			wake_up_process();
+		if(nTickets == 0){
+			set_current_state(TASK_INTERRUPTIBLE);
+			schedule();
+			continue;
 		}
+		if(nTickets > 0){
+			int counter = 0;
+			unsigned long winner = 0;
+			int randval = 0;
+			struct list_head *p, *n;
+			struct lexus_task_struct *node;
+			struct lexus_task_struct *new_task;
+			unsigned long flags;
+			printk(KERN_ERR "hello scheduler\n");
+			
+			get_random_bytes(&randval, sizeof(int)-1);
+			winner = (randval & 0x7FFFFFFF) % nTickets;
+			printk("The winner number is %ld", winner);
+			
+			// loop unitl the sum of tickets value is greaterthan the winner
+			spin_lock_irqsave(&lexus_lock, flags);
+			list_for_each_safe(p,n,&lexus_task_struct.list){
+				node = list_entry(p, struct lexus_task_struct, list);
+				counter += node->tickets;
+				if(counter > winner){
+					new_task = node;
+					break; // found the winner
+				}
+			}
+			
+			if(new_task == lexus_current){
+				set_current_state(TASK_INTERRUPTIBLE);
+				schedule();
+				continue;
+			}else{
+				// adjust priority and change state for old task
+    			sparam.sched_priority=0; 
+   				sched_setscheduler(lexus_current, SCHED_NORMAL, &sparam);
+				if(lexus_current != NULL) {
+					lexus_current->state = READY;
+				}
+				// adjust priority and change state for new task
+    			wake_up_process(new_task->task);
+				sparam.sched_priority=99;
+    			sched_setscheduler(new_task, SCHED_FIFO, &sparam);
+				lexus_current = new_task;
+				lexus_current->state = RUNNING;			
+				// go sleep
+			    set_current_state(TASK_INTERRUPTIBLE);
+	     	    schedule();
+		}		
 	}	
 	return 0;
 }
