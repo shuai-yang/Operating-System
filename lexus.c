@@ -127,19 +127,19 @@ int lexus_schedule(void *data)
 	unsigned long flags;
 
 	int counter = 0;
-	unsigned long winner = 0;
 	int randval = 0;
+	long unsigned int  winner;
 	struct lexus_task_struct *new_task;   
 
 	while(!kthread_should_stop()){   
-    	printk(KERN_ERR "hello scheduler\n");
+    	printk(KERN_ERR "hello scheduler\n");	
 		
 		if(nTickets == 0){
 			set_current_state(TASK_INTERRUPTIBLE);
 			schedule();
 			continue;
-		}
-			
+		}	
+		
 		get_random_bytes(&randval, sizeof(int)-1);
 		winner = (randval & 0x7FFFFFFF) % nTickets;
 		printk("The winner number is %ld", winner);
@@ -150,34 +150,39 @@ int lexus_schedule(void *data)
 			node = list_entry(p, struct lexus_task_struct, list);
 			counter += node->tickets;
 			if(counter > winner){
-				new_task = node;
-				break; // found the winner
+				new_task = node; 
+				counter = 0;
+				break;// found the winner 
 			}
 		}
+		spin_unlock_irqrestore(&lexus_lock, flags);
 			
 		if(new_task == lexus_current){
 			set_current_state(TASK_INTERRUPTIBLE);
 			schedule();
 			continue;
-		}else{
-			// adjust priority and change state for old task
-			if(lexus_current != NULL) {
-				lexus_current->state = READY;
-			}
-            sparam.sched_priority=0;
+		}
+		
+		spin_lock_irqsave(&lexus_lock,flags);
+		// adjust priority and change state for old task
+		if(lexus_current != NULL) {
+			lexus_current->state = READY;
+        	sparam.sched_priority=0;
 			sched_setscheduler(lexus_current->task, SCHED_NORMAL, &sparam);
-			
-			// adjust priority and change state for new task
-    		wake_up_process(new_task->task);
+		}
+		// adjust priority and change state for new task
+    	if(new_task != NULL) {
+			wake_up_process(new_task->task);
 			lexus_current = new_task;
 			lexus_current->state = RUNNING;			
 			sparam.sched_priority=99;
 			sched_setscheduler(new_task->task, SCHED_FIFO, &sparam);
-			
-			// go sleep
-			set_current_state(TASK_INTERRUPTIBLE);
-	     	schedule();
-		}// end of if 	
+		}
+		spin_unlock_irqrestore(&lexus_lock, flags);
+	
+		// go sleep
+		set_current_state(TASK_INTERRUPTIBLE);
+	    schedule();
 	} // end of while 	
 	return 0;
 } 

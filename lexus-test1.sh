@@ -1,5 +1,5 @@
 #!/bin/bash
 
-./test-lexus 100 42&
-./test-lexus 50 42&
-./test-lexus 250 42&
+./test-lexus 100 44&
+./test-lexus 50 44&
+./test-lexus 250 44&
