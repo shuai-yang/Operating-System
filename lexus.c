@@ -84,7 +84,6 @@ void lexus_register(struct lottery_struct lottery){
 	struct lexus_task_struct *node;
 	printk("lexus_register() get called");
 	node = kmalloc(sizeof(struct lexus_task_struct), GFP_KERNEL);
-	node->list = lexus_task_struct.list;
 	node->task = find_task_by_pid(lottery.pid);
 	node->pid = lottery.pid;
 	node->tickets = lottery.tickets;
@@ -106,13 +105,15 @@ void lexus_unregister(struct lottery_struct lottery){
 		/*node points to each lexus_task_struct in the list.*/
 		node = list_entry(p, struct lexus_task_struct, list);
 		if(node->pid == lottery.pid){
-			lexus_current = NULL;
+			if(lexus_current != NULL  && lexus_current->pid == node->pid){
+				lexus_current = NULL;
+			}
 			nTickets -= node->tickets;
 			list_del(p);
             kfree(node);
-			break;
-		}	
-	}
+			break;	
+		} //end of if 
+	} //end of loop
 	spin_unlock_irqrestore(&lexus_lock, flags);
 }
 
@@ -120,62 +121,66 @@ void lexus_unregister(struct lottery_struct lottery){
 /* executes a context switch: pick a task and dispatch it to the Linux CFS scheduler */
 int lexus_schedule(void *data)
 {
+	struct list_head *p, *n;
+	struct lexus_task_struct *node;
 	struct sched_param sparam;
-	while(!kthread_should_stop()){
+	unsigned long flags;
+
+	int counter = 0;
+	unsigned long winner = 0;
+	int randval = 0;
+	struct lexus_task_struct *new_task;   
+
+	while(!kthread_should_stop()){   
+    	printk(KERN_ERR "hello scheduler\n");
+		
 		if(nTickets == 0){
 			set_current_state(TASK_INTERRUPTIBLE);
 			schedule();
 			continue;
 		}
-		if(nTickets > 0){
-			int counter = 0;
-			unsigned long winner = 0;
-			int randval = 0;
-			struct list_head *p, *n;
-			struct lexus_task_struct *node;
-			struct lexus_task_struct *new_task;
-			unsigned long flags;
-			printk(KERN_ERR "hello scheduler\n");
 			
-			get_random_bytes(&randval, sizeof(int)-1);
-			winner = (randval & 0x7FFFFFFF) % nTickets;
-			printk("The winner number is %ld", winner);
+		get_random_bytes(&randval, sizeof(int)-1);
+		winner = (randval & 0x7FFFFFFF) % nTickets;
+		printk("The winner number is %ld", winner);
 			
-			// loop unitl the sum of tickets value is greaterthan the winner
-			spin_lock_irqsave(&lexus_lock, flags);
-			list_for_each_safe(p,n,&lexus_task_struct.list){
-				node = list_entry(p, struct lexus_task_struct, list);
-				counter += node->tickets;
-				if(counter > winner){
-					new_task = node;
-					break; // found the winner
-				}
+		// loop unitl the sum of tickets value is greaterthan the winner
+		spin_lock_irqsave(&lexus_lock, flags);
+		list_for_each_safe(p,n,&lexus_task_struct.list){
+			node = list_entry(p, struct lexus_task_struct, list);
+			counter += node->tickets;
+			if(counter > winner){
+				new_task = node;
+				break; // found the winner
 			}
+		}
 			
-			if(new_task == lexus_current){
-				set_current_state(TASK_INTERRUPTIBLE);
-				schedule();
-				continue;
-			}else{
-				// adjust priority and change state for old task
-    			sparam.sched_priority=0; 
-   				sched_setscheduler(lexus_current, SCHED_NORMAL, &sparam);
-				if(lexus_current != NULL) {
-					lexus_current->state = READY;
-				}
-				// adjust priority and change state for new task
-    			wake_up_process(new_task->task);
-				sparam.sched_priority=99;
-    			sched_setscheduler(new_task, SCHED_FIFO, &sparam);
-				lexus_current = new_task;
-				lexus_current->state = RUNNING;			
-				// go sleep
-			    set_current_state(TASK_INTERRUPTIBLE);
-	     	    schedule();
-		}		
-	}	
+		if(new_task == lexus_current){
+			set_current_state(TASK_INTERRUPTIBLE);
+			schedule();
+			continue;
+		}else{
+			// adjust priority and change state for old task
+			if(lexus_current != NULL) {
+				lexus_current->state = READY;
+			}
+            sparam.sched_priority=0;
+			sched_setscheduler(lexus_current->task, SCHED_NORMAL, &sparam);
+			
+			// adjust priority and change state for new task
+    		wake_up_process(new_task->task);
+			lexus_current = new_task;
+			lexus_current->state = RUNNING;			
+			sparam.sched_priority=99;
+			sched_setscheduler(new_task->task, SCHED_FIFO, &sparam);
+			
+			// go sleep
+			set_current_state(TASK_INTERRUPTIBLE);
+	     	schedule();
+		}// end of if 	
+	} // end of while 	
 	return 0;
-}
+} 
 
 /* handle ioctl system calls */
 static long lexus_dev_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
