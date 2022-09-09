@@ -41,16 +41,15 @@ To use the program, run the followingn commands:</br>
 None
 
 ## Reflection and Self Assessment
-
-Discuss the issues you encountered during development and testing. What
-problems did you have? What did you have to research and learn on your
-own? What kinds of errors did you get? How did you fix them?
-
-What parts of the project did you find challenging? Is there anything that
-finally "clicked" for you in the process of working on this project? How well
-did the development and testing process go for you?
+There are a few bugs I fixed during the development: </br>
+- In iotcl(), be careful to distinguish variables and pointers, so to use address of and char* casting accordingly. 
+- In lexus_register(), no need to initialize the list because we could use global variable lexus_task_struct.list direclty.
+- In lexus_unregister(), once the to-be-unregistered task found by pid, we need to check 1) whether the to-be-unregisted task is the currently-running task AND 2) whether the currently-running task is NOT NULL. If both conditions are met, set currently-runningn task NULL.  
+- In schedule(), one thing is that I should loop the list by the same way using the given list_for_each_safe(); another thing is I should **reset counter to zero once the winner is found**(This is one place where caused my computer crashed); the last thing is I should **unlock before getting out of a locked area**(This is the other place where caused my computer crashed).<br/>
+Note that I didn't make the divide-by-zero mistake and dereference a null pointer mistake becuase the instructor's pseudo code provided in the class has avoided these pitfalls.  
 
 ## Sources Used
-
-If you used any sources outside of the text book you should list them here. If you looked something up on
-stackoverflow.com and fail to cite it in this section it will be considered plagiarism and be dealt with accordingly. So be safe CITE!
+The following resources are listed by importance to me for this project:</br>
+- README
+- Pseudo code provided during the Canvas discussion part in the class
+- TA hours
