@@ -32,7 +32,7 @@ To use the program, run the followingn commands:</br>
 - Firstly, after finishing the ioctl(), lexus_register() and lexus_unregister(). I proved that process registering and unregistering are successful by adding pringk comments in both register() and unregister() and making sure they are printed out in the log.
 - Next, after finishing the schedule(), I ran the given testing scripts(lexus-test*.sh) and observe the results making sure the results are resonable. </br>
 </br>Based on the lottery scheduling, when every process tries to complete the same task, processes which hold more tickets of course will be more likely to be scheduled, and thus are expected to finish faster. Therefore, when running the test scripts, processes with more tickets finish faster. 
-</br></br>Following are the snapshots of my testing results, proving that my lottery scheduling produces reasonable scheduling results. 
+</br></br>Following are the snapshots of my testing results, proving that my lottery scheduling produces reasonable scheduling results.</br> 
 ![](https://github.com/shuai-yang/cs452-scheduler/blob/main/my_test1_result.PNG)
 ![](https://github.com/shuai-yang/cs452-scheduler/blob/main/my_test2_result.PNG)
 ![](https://github.com/shuai-yang/cs452-scheduler/blob/main/my_test3_result.PNG)
