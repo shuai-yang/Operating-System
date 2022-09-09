@@ -1,1 +1,0 @@
-cmd_/home/cs452/cs452-scheduler/lexus.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/cs452/cs452-scheduler/lexus.ko /home/cs452/cs452-scheduler/lexus.o /home/cs452/cs452-scheduler/lexus.mod.o
