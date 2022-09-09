@@ -35,7 +35,7 @@ To use the program, run the followingn commands:</br>
 </br></br>Following are the snapshots of my testing results, proving that my lottery scheduling produces reasonable scheduling results. 
 ![](https://github.com/shuai-yang/cs452-scheduler/blob/main/my_test1_result.PNG)
 ![](https://github.com/shuai-yang/cs452-scheduler/blob/main/my_test2_result.PNG)
-![](https://github.com/shuai-yang/cs452-scheduler/blob/main/my_test1_result.PNG)
+![](https://github.com/shuai-yang/cs452-scheduler/blob/main/my_test3_result.PNG)
 
 ## Known Bugs
 None
