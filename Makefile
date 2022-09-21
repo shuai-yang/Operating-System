@@ -1,23 +1,29 @@
-KERNEL_SOURCE=/lib/modules/`uname -r`/build
-MY_CFLAGS += -g -DDEBUG -O0
-ccflags-y += ${MY_CFLAGS}
-CC += ${MY_CFLAGS}
+CC=gcc
+CFLAGS=-g -O2 -std=gnu89 -Wall -Wpointer-arith -Wstrict-prototypes -MMD
+LIBFLAGS=-I. -shared -fPIC
+LIBS=-L. -lbuddy
+LIBOBJS=buddy.o
 
-all: lexus test-lexus
+all: libbuddy.so libbuddy.a buddy-test malloc-test buddy-unit-test
 
-debug:
-	make -C ${KERNEL_SOURCE} M=`pwd` modules
-	EXTRA_CFLAGS="$(MY_CFLAGS)"
+buddy.o: buddy.c
+	$(CC) $(CFLAGS) -shared -fPIC -c -o $@ $?
 
-lexus:
-	make -C ${KERNEL_SOURCE} M=`pwd` modules
+libbuddy.so: $(LIBOBJS)
+	$(LD) $(LIBFLAGS) -o $@ $?
 
-obj-m += lexus.o
+libbuddy.a: $(LIBOBJS)
+	$(AR)  rcv $@ $(LIBOBJS)
+	ranlib $@
 
-test-lexus: test-lexus.o
-	$(CC) $(CFLAGS) -o $@ $^
+buddy-unit-test: buddy-unit-test.o buddy.o
+	$(CC) $(CFLAGS) -o $@ $?
 
-clean:
-	/bin/rm -f test-lexus test-lexus.o
-	/bin/rm -f .lexus* *.o *.mod.c *.mod.o *.ko Module.symvers modules.order
-	/bin/rm -rf .tmp_versions/
+buddy-test: buddy-test.o buddy.o
+	$(CC) $(CFLAGS) -o $@ $?
+
+malloc-test: malloc-test.o 
+	$(CC) $(CFLAGS) -o $@ $?
+
+clean:	
+	/bin/rm -f *.o *.d a.out buddy-test malloc-test libbuddy.* buddy-unit-test
