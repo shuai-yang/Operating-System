@@ -74,14 +74,14 @@ void *buddy_malloc(size_t size){
 	if( i > max_kval){
 		return NULL;
 	}
-	
+
 	//let p points to the block header we just found
 	//printf("Found node at %p \n",  (char*)&avail[i]);
 	p = removeNode(i);
 	//printf("Removed node at %p \n", (char*)p);
 	p->tag = RESERVED;
 	//printBuddyLists();
-
+	i--;
 	while(i >= lgsize){
 		buddy = getBuddy(p, i);		
 		buddy->tag = FREE;
