@@ -82,47 +82,70 @@ void *buddy_malloc(size_t size){
 		buddy->tag = FREE;
 		buddy->kval = i;
 		buddy->prev = &avail[i];
-		buddy->next = p->next;
-		p->next = buddy;
-		p->prev = buddy;
-		buddy->prev = p;
+		buddy->next = avail[i].next; 
+		avail[i].next = buddy;
+		if(avail[i].prev != &avail[i]){
+			avail[i].prev = buddy;
+		}
+		//p->next = buddy;
+		//p->prev = buddy;
+		//buddy->prev = p;
 		i--; 
 	}	
-	// move p 24 bytes forward, and malloc(1) returns p
+	// move p 24 bytes forward and returns p
 	size += sizeof(struct block_header);
 	p = (struct block_header*)((char*)p +size);
 	return p;
 }
 
 void buddy_free(void *ptr) {
-	/*
 	struct block_header* p;
 	struct block_header* buddy;
-	strcut block_header* temp;
+	struct block_header* temp;
 	int k;
 	if(ptr == NULL){return NULL;}
 
 	//move p back 24 bytes
 	p = (struct block_header*)((char*)ptr - sizeof(struct block_header));
-	buddy = getBuddy(p);
+	buddy = getBuddy(p, p->kval);
 
-	while (i < found_pos){
-		buddy = (struct block_header*)((long)p ^ (1ULL<<lgsize));
-		//remove body from list and update kval???
-		avail[i].next->next = NULL;
-		avail[i].next = &avail[i];
-		i++;
-	}
+	//merge (recursion?)
+	//- check p->kval, if no buddy, should add p to that list  (until you find the list that doesn't have buddy)
+	//- if body is there: kick the buddy off the list, then 
+	// if buddy's address < p's address,  increase buddy's kval by 1 and add it the corresponding list (1 above)
+	// if p's address < buddy's address, do the samething for p
+	merge(ptr); 
 
-	//add one node
-	struct block_header* block_header_ptr = (struct block_header*)base;
-	block_header_ptr->tag =  FREE;
-	block_header_ptr->prev =  &avail[found_pos];
-	block_header_ptr->next =  &avail[found_pos];
-    avail[found_pos].prev= block_header_ptr;
-    avail[found_pos].next = block_header_ptr;
-	*/
 	return;
+}
+
+void merge(struct block_header *ptr){
+	struct block_header* buddy;
+	struct block_header* tmp = avail[ptr->kval].next;
+	buddy = getBuddy(ptr, ptr->kval);
+	while(tmp != &avail[ptr->kval] && tmp != buddy){
+		tmp = tmp->next;
+	}
+	if(tmp == &avail[ptr->kval]){
+		ptr->prev = &avail[ptr->kval];
+		ptr->next = avail[ptr->kval].next;
+		ptr->prev->next = ptr;
+		ptr->next->prev = ptr;
+		ptr->tag = FREE;
+		return;
+	}else{
+		buddy->prev->next = buddy->next;
+		buddy->next->prev = buddy->prev;
+		//buddy->next = NULL;
+		//buddy->prev = NULL;
+		if((char*)buddy < (char*)ptr){
+			buddy->kval += 1; 
+			merge(buddy);
+		} else{
+			ptr->kval += 1; 
+			merge(ptr);
+		}
+	}
 }
 
 void printBuddyLists(void){
