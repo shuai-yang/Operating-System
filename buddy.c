@@ -99,15 +99,16 @@ void *buddy_malloc(size_t size){
 	}	
 	// move p 24 bytes forward and returns p
 	// size += sizeof(struct block_header);
+	p->kval = lgsize;
 	p = (struct block_header*)((char*)p + sizeof(struct block_header));
 	return p;
 }
-
+void merge(struct block_header *ptr)
 void buddy_free(void *ptr) {
 	struct block_header* p;
 	struct block_header* buddy;
 	struct block_header* temp;
-	int k;
+	//int k;
 	if(ptr == NULL){return NULL;}
 
 	//move p back 24 bytes
