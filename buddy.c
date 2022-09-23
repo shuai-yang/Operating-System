@@ -103,7 +103,7 @@ void *buddy_malloc(size_t size){
 	p = (struct block_header*)((char*)p + sizeof(struct block_header));
 	return p;
 }
-void merge(struct block_header *ptr)
+void merge(struct block_header *ptr);
 void buddy_free(void *ptr) {
 	struct block_header* p;
 	//struct block_header* buddy;
