@@ -106,21 +106,21 @@ void *buddy_malloc(size_t size){
 void merge(struct block_header *ptr)
 void buddy_free(void *ptr) {
 	struct block_header* p;
-	struct block_header* buddy;
-	struct block_header* temp;
+	//struct block_header* buddy;
+	//struct block_header* temp;
 	//int k;
-	if(ptr == NULL){return NULL;}
+	if(ptr == NULL){return;}
 
 	//move p back 24 bytes
 	p = (struct block_header*)((char*)ptr - sizeof(struct block_header));
-	buddy = getBuddy(p, p->kval);
+	//buddy = getBuddy(p, p->kval);
 
 	//merge (recursion?)
 	//- check p->kval, if no buddy, should add p to that list  (until you find the list that doesn't have buddy)
 	//- if body is there: kick the buddy off the list, then 
 	// if buddy's address < p's address,  increase buddy's kval by 1 and add it the corresponding list (1 above)
 	// if p's address < buddy's address, do the samething for p
-	merge(ptr); 
+	merge(p); 
 
 	return;
 }
