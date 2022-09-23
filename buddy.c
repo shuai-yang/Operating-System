@@ -48,13 +48,13 @@ void *removeNode(int k){
 
 void *getBuddy(struct block_header* p, int lgsize){
 	struct block_header* buddy;
-	ptrdiff_t distance_bytes;
+	//ptrdiff_t distance_bytes;
 	//b = base + (p-base)^(1ULL<<k)
 	long temp = (char*)p - (char*)base;
 	temp = temp^(1ULL<<lgsize);
 	buddy = (struct block_header*)((char*)base + temp);
-	distance_bytes=(char*)buddy-(char*)p;				
-	printf("when splitting, the distance between p and its buddy (buddy on the right) is %td\n", distance_bytes);
+	//distance_bytes=(char*)buddy-(char*)p;				
+	//printf("when splitting, the distance between p and its buddy (buddy on the right) is %td\n", distance_bytes);
 	return buddy;
 }
 
@@ -63,7 +63,7 @@ void *buddy_malloc(size_t size){
 	int lgsize = 0;
 	struct block_header* p;
 	struct block_header* buddy;
-
+    size += sizeof(struct block_header);
 	lgsize = getLgSize(size);
 	for(i=lgsize; i<=max_kval; i++){
 		if(avail[i].next != &avail[i]){
@@ -76,7 +76,7 @@ void *buddy_malloc(size_t size){
 	//printf("Removed node at %p \n", (char*)p);
 	p->tag = RESERVED;
 	//printBuddyLists();
-	
+
 	while(i >= lgsize){
 		buddy = getBuddy(p, i);		
 		buddy->tag = FREE;
