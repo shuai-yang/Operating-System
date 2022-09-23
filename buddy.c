@@ -70,6 +70,11 @@ void *buddy_malloc(size_t size){
 			break;
 		}
 	}
+
+	if( i > max_kval){
+		return NULL;
+	}
+	
 	//let p points to the block header we just found
 	//printf("Found node at %p \n",  (char*)&avail[i]);
 	p = removeNode(i);
