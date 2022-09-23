@@ -98,8 +98,8 @@ void *buddy_malloc(size_t size){
 		i--; 
 	}	
 	// move p 24 bytes forward and returns p
-	size += sizeof(struct block_header);
-	p = (struct block_header*)((char*)p +size);
+	// size += sizeof(struct block_header);
+	p = (struct block_header*)((char*)p + sizeof(struct block_header));
 	return p;
 }
 
