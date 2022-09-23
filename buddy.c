@@ -2,8 +2,6 @@
 #include <unistd.h>
 #include <stddef.h>
 
-int lgsize;
-int found_pos;
 int buddy_init(void) { 
     int i;
     base = (void*)sbrk(DEFAULT_MAX_MEM_SIZE); 
@@ -48,7 +46,7 @@ void *removeNode(int k){
 	return block;
 }
 
-void *getBuddy(struct block_header* p){
+void *getBuddy(struct block_header* p, int lgsize){
 	struct block_header* buddy;
 	ptrdiff_t distance_bytes;
 	//b = base + (p-base)^(1ULL<<k)
@@ -62,6 +60,7 @@ void *getBuddy(struct block_header* p){
 
 void *buddy_malloc(size_t size){
 	int i = 0;
+	int lgsize = 0;
 	struct block_header* p;
 	struct block_header* buddy;
 
@@ -72,18 +71,14 @@ void *buddy_malloc(size_t size){
 		}
 	}
 	//let p points to the block header we just found
-	printf("Found node at %p \n",  (char*)&avail[i]);
+	//printf("Found node at %p \n",  (char*)&avail[i]);
 	p = removeNode(i);
-	printf("Removed node at %p \n", (char*)p);
+	//printf("Removed node at %p \n", (char*)p);
 	p->tag = RESERVED;
-	printBuddyLists();
-	buddy = getBuddy(p)
-	/*
+	//printBuddyLists();
+	
 	while(i >= lgsize){
-		i--; 
-		buddy = getBuddy(p);
-		//buddy = (struct block_header*)((char*)base+((long)((char*)p - (char*)base))^(1ULL<<lgsize));
-		
+		buddy = getBuddy(p, i);		
 		buddy->tag = FREE;
 		buddy->kval = i;
 		buddy->prev = &avail[i];
@@ -91,13 +86,11 @@ void *buddy_malloc(size_t size){
 		p->next = buddy;
 		p->prev = buddy;
 		buddy->prev = p;
+		i--; 
 	}	
-	
-	// move p 24 bytes forward, and malloc(1) returns p  ???*/
+	// move p 24 bytes forward, and malloc(1) returns p
 	size += sizeof(struct block_header);
 	p = (struct block_header*)((char*)p +size);
-	//p = (struct block_header*)((char*)p +structof(struct block_header));
-	//p = (char*)((char*)p + sizeof(struct block_header));
 	return p;
 }
 
@@ -146,7 +139,7 @@ void printBuddyLists(void){
         }
         printf(" --> head = %p \n", &avail[i]);
 	} 
-    printf("\nNumber of available blocks = %d \n", count);
+    printf("\nNumber of available blocks = %d \n\n", count);
 }
 
 /* vim: set ts=4: */
