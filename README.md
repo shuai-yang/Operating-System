@@ -1,240 +1,256 @@
-## Overview
+# Overview
 
-In this assignment we will implement our own memory allocator. More specifically, we will replace malloc/free with your own memory management scheme based on the buddy system discussed in class. Note this is NOT a kernel project, and you should just develop your code on onyx, not in your virtual machine. Submissions fail to compile or run on onyx, will not be graded.
+In this assignment, we will write a Linux kernel module called lexus. You should still use the cs452 VM which you used for your p1, as loading and unloading the kernel module requires the root privilege.
 
 ## Learning Objectives
 
-- Understand how free memory space is managed.
-- Learn the buddy memory allocation algorithm.
+ - Get familiar with another frequently used system call function: the ioctl() system call.
+ - Have a better understanding of the lottery scheduling algorithm.
+ - Learn the basics of the Linux CPU Scheduler APIs and learn how priorities affect process performance.
 
-## Note
+## Important Notes
 
-This README is all about implementation. The theory of how buddy system works is beyond the scope of this README. You are highly recommended to read the book chapter and watch some youtube videos demonstrating how buddy system works.
+You MUST build against the kernel version (3.10.0-1160.el7.x86\_64), which is the default version of the kernel installed on the cs452 VM. For this assignment, your should only allocate one single core to your VM.
 
-## References
+Also note that in this README file, we use the term process and task interchangeably. The term process and thread in this assignment also has the same meaning. Later on in this semester you will learn that these two terms are different, but as of now, we do not touch the different side of these two terms.
 
-Operating Systems: Three Easy Pieces: [Chapter 17: Free Space Management](https://pages.cs.wisc.edu/~remzi/OSTEP/vm-freespace.pdf)<br/>
+## Book References
 
-## Starter Code
+ - Operating Systems: Three Easy Pieces: [Chapter 9: Lottery Scheduling](https://pages.cs.wisc.edu/~remzi/OSTEP/cpu-sched-lottery.pdf) (also known as "Scheduling: Proportional Share").
 
-The starter code looks like this:
+# Specification
+
+You will develop a lottery scheduler for a single core processor in a Linux system. Please refer to the book chapter to have a basic understanding of how lottery scheduling works.
+
+Your scheduler will work as a kernel module. Processes in a Linux system are by default scheduled by the default Linux CFS (Completely Fair Scheduling) scheduler. In this assignment, we do not intend to take over the default CFS scheduler, rather we try to maintain a separate scheduler and based on our lottery scheduling policy, we choose tasks we want to run and increase their priority, and then dispatch the chosen tasks to the CFS scheduler.
+
+## The Starter Code
+
+The starter code already provides you with the code for a kernel module called lexus. To install the module, run *make* and then *sudo insmod lexus.ko*; to remove it, run *sudo rmmod lexus*. Yes, in rmmod, whether or not you specify *ko* does not matter; but in insmod, you must have that *ko*.
+
+What this module currently does is: create a file called /dev/lexus, which provides an inteface for applications to communicate with the kernel module. In this assignment, the only way to communicate between applications and the kernel module, is applications issue ioctl() system calls to this device file (i.e., /dev/lexus), and the kernel module will handle these ioctl commands. The two commands we need to support are: LEXUS\_REGISTER and LEXUS\_UNREGISTER. Applications who want to be managed by our lottery scheduling should issue a LEXUS\_REGISTER command to /dev/lexus, so as to register themselves into our lottery scheduling system; registered applications who want to get out should issue a LEXUS\_UNREGISTER command, so that we do not manage them anymore.
+
+The starter code includes a function called dispatch\_timer\_callback(). This function sets a timer which goes off every 200 milliseconds, and when the timer goes off, this function wakes up the lottery scheduling thread, which runs lexus\_schedule() to hold a lottery and choose a new task based on the lottery result. lexus\_schedule() is the function you are going to implement and is the function you are going to spend most of your time on in this assignment. In the remainder of this README file, we will also refer to this lottery scheduling thread as the dispatching thread.
+
+A testing program (test-lexus.c) and corresponding testing scripts (lexus-test\*.sh) are also provided. The test scripts start a number of the test program simultaneously, and pass different parameters to the testing program. Each testing program will run as a seperate process, which holds a number of tickets. Following is an example - lexus-test1.sh, this script tries to launch three processes, each runs the test program - test-lexus, each of the three processes attempts to accomplish the same task, which is calcuating lucas number 44 - what lucas numbers are is not important to you, you just need to know that it is a CPU-intensive computation, and our intention here is the make sure all processes attempt to do the same computation. The example here shows, process 1 will have 100 tickets, process 2 will have 50 tickets, process 3 will have 250 tickets. 
 
 ```console
-(base) [@onyx cs452-buddy-system]$ ls
-buddy.c  buddy.h  buddy-test.c  buddy-unit-test.c  Makefile  malloc-test.c  README.md  README.template
+[cs452@localhost scheduler]$ cat lexus-test1.sh 
+#!/bin/bash
+
+./test-lexus 100 44&
+./test-lexus 50 44&
+./test-lexus 250 44&
 ```
 
-You will be completing the buddy.c file. You should not modify the buddy.h file.<!-- Then you will port the code over to the buddy-preload folder. The porting only involves changing some function prototypes.-->
+Based on the lottery scheduling, when every process tries to complete the same task, processes which hold more tickets of course will be more likely to be scheduled, and thus are expected to finish faster. Therefore, when running the above script, process 3 will complete first, process 1 will complete next, process 2 will complete last. The results provided in the "Expected Results" section of this README shows exactly that.
 
-## Specification
+## Functions You Need to Implement
 
-You are required to implement the following 4 functions.
+You need to implement the following 4 functions in the kernel module:
+  - lexus\_register(): this function will be called when applications want to register themselves into the lottery scheduling system. In this function you should allocate memory for a *struct lexus\_task\_struct* instance, initialize it, and add it into the global list lexus\_task\_struct.list - described below in the "Related Kernel APIs" section.
+  - lexus\_unregister(): this function will be called when applications want to unregister themselves from the lottery scheduling system. In this function you should free the memory allocated in lexus\_register(), and remove the task from the global list.
+  - lexus\_dev\_ioctl(): this function will be called when applications issue commands via the ioctl system call. Applications do not call lexus\_register()/lexus\_unregister() directly, they send ioctl commands to the kernel module, which handles these commands via this lexus\_dev\_ioctl() function and call the reigster/unregister functions on behalf of applications.
+  - lexus\_schedule(): this is the main scheduling function of the lottery scheduling system, this function will be called every 200 milliseconds. Refer to the book chapter for how your lottery scheduling should be implemented.
 
- - int buddy\_init(void): buddy\_init() does all the initialization. buddy\_init() does not take any parameters. It returns TRUE on success, and FALSE if it is a failure. Users are expected to call this function before use buddy\_malloc(). If they do not call buddy\_init() before calling buddy\_malloc(), your buddy\_malloc() can just return NULL.
- - void\* buddy\_malloc(size\_t size): just like malloc(), your buddy\_malloc() function allocates **size** bytes and returns a pointer to the allocated memory. If the memory cannot be allocated, then your buddy\_malloc function should return NULL.
- - void buddy\_free(void \*ptr); just like free(), your buddy\_free() function frees the memory space pointed to by **ptr**, which must have been returned by a previous call to buddy\_malloc(). Your buddy\_free() should not return anything. However, if ptr is NULL, then just return.
- - void printBuddyLists(void): this function is mainly for debugging purpose. Implementing this function will save your time in developing other functions. Example output of this printBuddyLists() is displayed below:
-
-```console
-List 0: head = 0x6020c0 --> head = 0x6020c0
-List 1: head = 0x6020d8 --> head = 0x6020d8
-List 2: head = 0x6020f0 --> head = 0x6020f0
-List 3: head = 0x602108 --> head = 0x602108
-List 4: head = 0x602120 --> head = 0x602120
-List 5: head = 0x602138 --> [tag=1,kval=5,addr=0x199e020] --> head = 0x602138
-List 6: head = 0x602150 --> [tag=1,kval=6,addr=0x199e040] --> head = 0x602150
-List 7: head = 0x602168 --> [tag=1,kval=7,addr=0x199e080] --> head = 0x602168
-List 8: head = 0x602180 --> [tag=1,kval=8,addr=0x199e100] --> head = 0x602180
-List 9: head = 0x602198 --> [tag=1,kval=9,addr=0x199e200] --> head = 0x602198
-List 10: head = 0x6021b0 --> [tag=1,kval=10,addr=0x199e400] --> head = 0x6021b0
-List 11: head = 0x6021c8 --> [tag=1,kval=11,addr=0x199e800] --> head = 0x6021c8
-List 12: head = 0x6021e0 --> [tag=1,kval=12,addr=0x199f000] --> head = 0x6021e0
-List 13: head = 0x6021f8 --> [tag=1,kval=13,addr=0x19a0000] --> head = 0x6021f8
-List 14: head = 0x602210 --> [tag=1,kval=14,addr=0x19a2000] --> head = 0x602210
-List 15: head = 0x602228 --> [tag=1,kval=15,addr=0x19a6000] --> head = 0x602228
-List 16: head = 0x602240 --> [tag=1,kval=16,addr=0x19ae000] --> head = 0x602240
-List 17: head = 0x602258 --> [tag=1,kval=17,addr=0x19be000] --> head = 0x602258
-List 18: head = 0x602270 --> [tag=1,kval=18,addr=0x19de000] --> head = 0x602270
-List 19: head = 0x602288 --> [tag=1,kval=19,addr=0x1a1e000] --> head = 0x602288
-List 20: head = 0x6022a0 --> [tag=1,kval=20,addr=0x1a9e000] --> head = 0x6022a0
-List 21: head = 0x6022b8 --> [tag=1,kval=21,addr=0x1b9e000] --> head = 0x6022b8
-List 22: head = 0x6022d0 --> [tag=1,kval=22,addr=0x1d9e000] --> head = 0x6022d0
-List 23: head = 0x6022e8 --> [tag=1,kval=23,addr=0x219e000] --> head = 0x6022e8
-List 24: head = 0x602300 --> [tag=1,kval=24,addr=0x299e000] --> head = 0x602300
-List 25: head = 0x602318 --> [tag=1,kval=25,addr=0x399e000] --> head = 0x602318
-List 26: head = 0x602330 --> [tag=1,kval=26,addr=0x599e000] --> head = 0x602330
-List 27: head = 0x602348 --> [tag=1,kval=27,addr=0x999e000] --> head = 0x602348
-List 28: head = 0x602360 --> [tag=1,kval=28,addr=0x1199e000] --> head = 0x602360
-List 29: head = 0x602378 --> head = 0x602378
-
- Number of available blocks = 24
-
-```
-
-The meaning of these lists will be explained shortly in this next section.
-
-## Global Data Structures and Variables
-
-The starter code defines the following global data structures and variables, in buddy.h. Once again, do not modify buddy.h.
-
-- *struct block_header avail[30]*; this is a global array which has 30 elements: avail[0] to avail[29]. Each element represents the head of a list. In theory you can implement this list in many different ways, in this assignment you are highly recommended to implement it as a circular doubly linked list. In total, you will have 30 such lists: List 0 to List 29 - the above printBuddyLists() prints these lists. All 30 lists should be initialized in your buddy\_init() function.
-
-- *struct block_header*. This is the basic data structure which represents the header of one memory block.
+You should implement lexus\_dev\_ioctl() first, and then implement lexus\_register(), lexus\_unregister(), your final step should be implementing lexus\_schedule().
+ - In your lexus\_dev\_ioctl(), you either call lexus\_register() or call lexus\_unregister(), depending on which command you receive from the application via the ioctl() system call. Eventually the command will be passed from the user-space ioctl() system call to the kernel space, and it will be the second parameter of your lexus\_dev\_ioctl():
 
 ```c
-/* the header for an available block */
-struct block_header {
-    short tag;
-    short kval;
-    struct block_header *next;
-    struct block_header *prev;
-};
+static long lexus_dev_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 ```
 
-The above 30 lists do not connect memory blocks, rather, they connect headers - headers representing the head of memory blocks. Reading the book chapter will help you understand the meaning of headers and why we need headers, but the textbook chapter does not describe how exactly we can implement the buddy system. In our implementation, we define 30 circular doubly linked lists: list 0 connects block headers, and each header represents a memory block whose size is 2^0=1 byte, and we say its **kval** is 0; list 1 connects block headers, and each header represents a memory block whose size is 2^1=2 byte, and we say its **kval** is 1; list 2 connects block headers, and each header represents a memory block whose size is 2^2=4 bytes, and we say its **kval** is 2; ...; list 29 connects block headers, and each header represents a memory block whose size is 2^29=512MB, and we say its **kval** is 29.
+The second parameter of this function, which is *ioctl*, is the command number, which will be either 1 or 2, but instead of using numbers, you are recommended to use LEXUS\_REGISTER or LEXUS\_UNREGISTER, as we define in lexus.h that LEXUS\_REGISTER is command 1, and LEXUS\_UNREGISTER is command 2.
 
-In your printBuddyLists(), you should try to print out all your 30 lists. The *addr* in the example output of the above printBuddyLists(), means the address of each node.
-
-- In *struct block_header*, there is a field called *tag*. We use this tag to represent the status of memory block. 3 tags are defined:
-
+The following is how applications send the ioctl commands, note that the third parameter of the ioctl is the information the application attempts to send along with the command.
 ```c
-const int RESERVED = 0;
-const int FREE = 1;
-const int UNUSED = -1; /* useful for header nodes */
+int register_process(struct lottery_struct lottery_info) {
+        int ret;
+        #ifdef DEBUG
+        printf("%lu: registering...\n", lottery_info.pid);
+        #endif
+        ret = ioctl(lexus_fd, LEXUS_REGISTER, &lottery_info);
+        if (ret == -1)
+                return -errno;
+        return 0;
+}
 ```
 
-The head of each of the 30 lists, is a dummy node, which does not represent any memory block, but is only used to represent the beginning of this list. Thus we use the tag UNUSED to represent such nodes. For all the other nodes on each of the 30 lists, we use the FREE tag: we use the lists to manage free space, that is why this book chapter is called "Free Space Management". We do not keep a node on any of the 30 lists, if the memory block it represents is allocated - and for those nodes, we use the tag RESERVED.
+In the above example, lottery\_info is a *struct lottery\_struct* variable which carries two fields, one is the process id, the other is the process's number of tickets. Note that this struct, which is the third parameter of the ioctl() system call, will be passed to your lexus\_dev\_ioctl() also as the third parameter, which is *arg*. Because we are passing the address of lottery\_info, therefore you can expect *arg* to be the address of lottery\_info, and remember from the previous project, in kernel space, you can not access a user-space address directly.
 
-- *const int max_kval*; *max_kval* represents the largest index of the above array, which is initialized as 29, and should not be changed.
+Once you complete your implemention of lexus\_dev\_ioctl(), you should test to see, when applications try to register, does your lexus\_register() get called; when applications try to unregister, does your lexus\_unregister() get called? If yes, then you move on to implement lexus\_register() and lexus\_unregister(). And then implement lexus\_schedule().
 
-- *const size_t DEFAULT_MAX_MEM_SIZE*; this macro denotes the largest memory chunk you will get from sbrk() and will be the memory chunk you are going to manage. *DEFAULT_MAX_MEM_SIZE* is 512MB. In your buddy\_init(), you should use sbrk() as following:
+## Predefined Data Structures, Global Variables, and Provided Helper Functions
+  - *struct lottery\_struct*: The lottery\_info variable we just mentioned, is an instance of this struct, which is defined in lexus.h. It is used by the application to pass parameters to the kernel module; because both applications and the kernel module includes "lexus.h", thus the kernel module also knows this data structure, and thus you can use it in your kernel module. This allows you to pass information from the application to the kernel module.
+  - *struct lexus\_task\_struct*: each instance of this data structure is representing a process; the Linux kernel defines *struct task\_struct*, each of such struct represents a process in the Linux kernel. *struct lexus\_task\_struct* is a wrapper of *struct task\_struct*, in other words, it includes *struct task\_struct*, but also includes other fields necessary for the lottery scheduling.
+  - *static struct lexus_task_struct* \**lexus_current*: this global pointer should always point to the *struct lexus_task_struct* instance which represents the currently running lexus process; when a lottery winner is chosen, set *lexus_current* to the *struct lexus_task_struct* representing that winning process. When a process is unregistering, set *lexus_current* to NULL and make sure not to schedule it anymore - otherwise your VM will crash, because the node is removed and you still try to schedule it. The starter code (in *lexus_init()*) initializes *lexus_current* to NULL.
+  - *static struct lexus_task_struct lexus_task_struct*: will be described in the next section.
+  - *unsigned long nTickets*: this integer nTickets represents how many tickets in total we have in the lottery scheduling system, at first, it is initialized to 0; you should increment this number when you have tasks get registered, and decrement this number when tasks unregister.
+  - task\_state: in lexus.h, we define an enum data type called task\_state. It defines two states: RUNNING, READY. As you can see, *struct lexus\_task\_struct* includes a field called *task\_state state*. When a task is registering, set its state to READY. When scheduling, set the old task's state to READY, and set the newly chosen task's state to RUNNING. You do not need to change a task's state when it is unregistering - it will soon leave our lottery scheduling system and we do not care about its state anymore.
+  - struct task\_struct\* find\_task\_by\_pid(unsigned int pid); given a pid, this function returns a pointer pointing to its associated *struct task\_struct*. You will want to use this function in your lexus\_register() function, so that you can associate your *struct lexus\_task\_struct* with the process's *struct task\_struct*.
+
+## Related Kernel APIs
+
+I used the following APIs. 
+
+  - list manipulation: In this assignment, there is one global list, and only one, which is used to connect all *struct lexus\_task\_struct* instances. This is how it is implemented: the kernel module defines a global variable called *struct lexus\_task\_struct lexus\_task\_struct*, as below:
 
 ```c
-base=sbrk(DEFAULT_MAX_MEM_SIZE);
+/* use this global variable to track all registered tasks, by adding into its list */
+static struct lexus_task_struct lexus_task_struct;
 ```
 
-- *void* \**base*; *base* is a void type pointer which points to the starting address of the above memory chunk. In buddy.h, we initialized *base* as NULL, but once you use the above sbrk() line, *base* will be pointing to the starting address of the allocated 512MB memory chunk.
-
-## APIs, Helper Code, and Formula
-
-The only API function you will need to call in this programming assignment, is sbrk(), which is a library function which calls a system call function named brk()/sys\_brk() to allocate memory from the kernel. Once sbrk() returns the memory you need, you just manage the memory, and do not need to call sbrk() again.
-
-In addition, at some point, you will need to calculate the ceiling log base 2 of an integer, for that, you are recommended to use the following code:
+*struct lexus\_task\_struct* has a field called *struct list\_head list*, given that *struct lexus\_task\_struct lexus\_task\_struct* is a global variable, its list field is actually representing a global list. The Linux kernel provides a unique way for you to add a node into this list, assume you have a *struct lexus\_task\_struct* pointer called *node*, and you want to add *node* into this global list, then you can use:
 
 ```c
-    size=size-1;
-    while(size>0){
-        size=size>>1;
-        lgsize++;
+list_add(&(node->list), &(lexus_task_struct.list));
+```
+
+What if you want to delete a node, in this assignment, the only place you want to delete a node is in lexus\_unregister() - when the process has finished its job, it's time for it to leave the lottery scheduling system and remove itself from the global list. Your lexus\_unregister() should execute code like this:
+
+```c
+    struct list_head *p, *n;
+    struct lexus_task_struct *node;
+    list_for_each_safe(p, n, &lexus_task_struct.list) {
+	/* node points to each lexus_task_struct in the list. */
+        node = list_entry(p, struct lexus_task_struct, list);
+	/* add code here if you don't want to delete every node... */
+        list_del(p);
     }
 ```
 
-Given an integer *size*, the above code stores the ceiling log base 2 of *size* in *lgsize* - make sure your *lgsize* is initialized to be 0.
+The above code snippet will iterate the global list, and node will be each node, however, when deleting the node, we do not pass node as a parameter to list\_del. Instead of node, we pass the list field of node, which in the above code snippet, is p, to list\_del(). This is consistent to list\_add(), whose first parameter is also the list of a node. list\_for\_each\_safe() is a macro provided by the Linux kernel, this macro will be expanded as a **for** loop. Thus you can use **break** as needed. The above example just shows you how to iterate the list, but does not show you what you need to do in each iteration, apparently, when a process wants to unregister, it should remove its own node from the list, but should not remove other nodes from the list. In other words, you should get out of this loop as soon as you remove the node which is associated with the process which is trying to unregister.
 
-As the chapter says: **The reason buddy allocation works so well is that it is simple to determine the buddy of a particular block. How, you ask? Think about the addresses of the blocks in the free space above. If you think carefully enough, you’ll see that the address of each buddy pair only differs by a single bit; which bit is determined by the level in the buddy tree.** It's true, there is only one single bit of difference between a memory block's **relative** address and its buddy's **relative** address. Thus in your code, you can use the following formula to compute your buddy's (**relative**) memory address.
-
-```c
-your_buddy_address = your_address^(1ULL<<lgsize));
-```
-
-This formula basically uses the bit-wise XOR operation to flip one single bit of your address, so as to get your buddy's address. Note, we are talking about relative addresses only; not absolute addresses. If your buddy calculation is correct, you should see that the distance between your address and your buddy's address is a power of 2, and you can use the following 4 lines to show the distance between two pointers *p* and *p2* - assuming *p* is larger than *p2*:
+Note that in the above example, p and n and temporary pointers, which are required for the list\_for\_each\_safe() and list\_entry() macros. Therefore, in this assignment, you are recommended to use these few lines whenever you want to iterate through this global this (once again, there is only one global list in this assignment):
 
 ```c
-#include <stddef.h> /* for ptrdiff_t */
-ptrdiff_t distance_bytes;
-distance_bytes=(char *)p-(char *)p2;				
-printf("when splitting, the distance between p2 and its buddy (buddy on the right) is %td\n", distance_bytes);
+    struct list_head *p, *n;
+    struct lexus_task_struct *node;
+    list_for_each_safe(p, n, &lexus_task_struct.list) {
+        node = list_entry(p, struct lexus_task_struct, list);
+	/* add your code here, now that you have the node, what do you want to do with this node? */
+    }
 ```
 
-Some sample output is like this:
+  - spin locks to protect the list, and global variables. Any code which manipulates the list needs to be locked, so as to avoid things like this to happen: while you are iterating over the list, someone deletes some node from the list, or adds a node to the list. This could cause chaos to the list. To have the protection, see the following example:
+
+```c
+unsigned long flags;
+spin_lock_irqsave(&lexus_lock, flags);
+list_add(&(node->list), &(lexus_task_struct.list));
+spin_unlock_irqrestore(&lexus_lock, flags);
+```
+
+First define a local variable called flags, and then call spin\_lock\_irqsave(&lexus\_lock, flags) before you want to manipulate the list - in the above example, we call list\_add() to add a node to the list, and then call spin\_unlock\_irqrestore(&lexus\_lock, flags) once your manipulation is finished. We will explain these lock functions in a more detailed fashion later this semester when we move on to the concurrency topics. You should also use these two functions when you attempt to change global variables, such as nTickets, and lexus\_current.
+
+  - adjusting scheduling priority: when the timer goes off, it's time to hold a new lottery and maybe schedule a different process (than the one that is currently running). At this point, the old task should be treated like this:
+
+```c
+    struct sched_param sparam;
+    sparam.sched_priority=0; 
+    sched_setscheduler(node, SCHED_NORMAL, &sparam);
+```
+The above code will tell the CFS scheduler that this process now has a low priority. In the meantime, the newly chosen process should be treated like this:
+
+```c
+    struct sched_param sparam;
+    wake_up_process(node->task);
+    sparam.sched_priority=99;
+    sched_setscheduler(node, SCHED_FIFO, &sparam);
+```
+The above code will first wake up the chosen process, and tell the CFS scheduler that this process now has a high priority - any task running on SCHED\_FIFO will hold the CPU for as long as the application needs.
+  - wake\_up\_process(). prototype: int wake\_up\_process(struct task\_struct \*tsk); As the name suggests, this function wakes up a process. Note that this function take a *struct task\_struct* pointer as a parameter, not a *struct lexus\_task\_struct* pointer. Your scheduling function (i.e., lexus\_schedule()) will call this function to wake up the chosen process. The lexus\_exit() function will call this function to wake up the dispatching thread so it can get ready to exit.
+  - let the dispatching thread sleep: once the dispatching thread has run the lottery algorithm and chosen a process, the dispatching thread itself should go to sleep, and get woken up when the timer goes off again. The following two lines let the dispatching thread go to sleep:
+
+```c
+    set_current_state(TASK_INTERRUPTIBLE);
+    schedule();	/* this function does not take any parameter, call this function will trigger the CFS scheduler to make a new scheduling decision. */
+```
+  - the dispatching thread() should put itself in an infinite loop so that it keeps running forever until the we remove the kernel module. To achieve this, it should execute code like this:
+
+```c
+while(!kthread_should_stop()) {
+}
+```
+
+And we can see in lexus\_exit(), it calls kthread\_stop(dispatch\_kthread); that's when the dispatching thread finally gets out of this while loop and return. Note: because of the logic we are describing here, your lexue\_schedule() should not return as long as the module is loaded - otherwise, your system would crash upon unloading - because in that case, kthread\_stop(dispatch\_kthread) will be attempting to stop a non-existing thread.
+
+  - get\_random\_bytes(). prototype: void get\_random\_bytes(void \*buf, int nbytes); This function returns the requested number of random bytes and stores them in a buffer. Below is an example of how to use this function, assuming your lottery system has 888 tickets in total.
+
+```c
+    unsigned long winner = 0;
+    int randval = 0;
+    /* producing a random number as the lottery winning number */
+    get_random_bytes(&randval, sizeof(int)-1);
+    winner = (randval & 0x7FFFFFFF) % 888;
+```
+
+The winner here will be an integer in between 0 and 888-1. Note that your code should not come to here when you have zero ticket, your system would crash due to a "divide by zero" exception.
+
+  - APIs mentioned in the previous project are not described here, including kmalloc(), kfree(), copy\_from\_user(), copy\_to\_user(), you may use some of them, or all of them.
+
+## Expected Results
+
+Three testing scripts are provided, when running these test scripts, this is the expected results:
 
 ```console
-when splitting, the distance between p2 and its buddy (buddy on the right) is 268435456
-when splitting, the distance between p2 and its buddy (buddy on the right) is 134217728
-when splitting, the distance between p2 and its buddy (buddy on the right) is 67108864
-when splitting, the distance between p2 and its buddy (buddy on the right) is 33554432
-when splitting, the distance between p2 and its buddy (buddy on the right) is 16777216
-when splitting, the distance between p2 and its buddy (buddy on the right) is 8388608
-when splitting, the distance between p2 and its buddy (buddy on the right) is 4194304
-when splitting, the distance between p2 and its buddy (buddy on the right) is 2097152
-when splitting, the distance between p2 and its buddy (buddy on the right) is 1048576
-when splitting, the distance between p2 and its buddy (buddy on the right) is 524288
-when splitting, the distance between p2 and its buddy (buddy on the right) is 262144
-when splitting, the distance between p2 and its buddy (buddy on the right) is 131072
-when splitting, the distance between p2 and its buddy (buddy on the right) is 65536
-when splitting, the distance between p2 and its buddy (buddy on the right) is 32768
-when splitting, the distance between p2 and its buddy (buddy on the right) is 16384
-when splitting, the distance between p2 and its buddy (buddy on the right) is 8192
-when splitting, the distance between p2 and its buddy (buddy on the right) is 4096
-when splitting, the distance between p2 and its buddy (buddy on the right) is 2048
-when splitting, the distance between p2 and its buddy (buddy on the right) is 1024
-when splitting, the distance between p2 and its buddy (buddy on the right) is 512
-when splitting, the distance between p2 and its buddy (buddy on the right) is 256
-when splitting, the distance between p2 and its buddy (buddy on the right) is 128
-when splitting, the distance between p2 and its buddy (buddy on the right) is 64
-when splitting, the distance between p2 and its buddy (buddy on the right) is 32
+[cs452@localhost scheduler]$ ./lexus-test1.sh
+[cs452@localhost scheduler]$ pid 6906, with 250 tickets: computing lucas(42) took 6.20 seconds.
+pid 6904, with 100 tickets: computing lucas(42) took 10.16 seconds.
+pid 6905, with 50 tickets: computing lucas(42) took 11.50 seconds.
+
+[cs452@localhost scheduler]$ ./lexus-test2.sh
+[cs452@localhost scheduler]$ pid 7064, with 100 tickets: computing lucas(42) took 4.28 seconds.
+pid 7065, with 5 tickets: computing lucas(42) took 8.20 seconds.
+
+[cs452@localhost scheduler]$ ./lexus-test3.sh
+[cs452@localhost scheduler]$ pid 7031, with 600 tickets: computing lucas(42) took 7.14 seconds.
+pid 7028, with 550 tickets: computing lucas(42) took 15.50 seconds.
+pid 7026, with 250 tickets: computing lucas(42) took 17.26 seconds.
+pid 7024, with 100 tickets: computing lucas(42) took 20.68 seconds.
+pid 7027, with 50 tickets: computing lucas(42) took 24.40 seconds.
+pid 7029, with 20 tickets: computing lucas(42) took 25.30 seconds.
+pid 7030, with 10 tickets: computing lucas(42) took 30.52 seconds.
+pid 7025, with 5 tickets: computing lucas(42) took 32.12 seconds.
 ```
 
-## Testing
+Note that the test takes some time, thus do not panic when you do not see the results right after typing the commands. From the above results, it can be seen that when all processes are trying to compute lucas number 42, processes with more tickets finish faster. Also note, while loading and unloading the kernel module requires the root privilege, running these tests does not require special privileges.
 
-Two performance test files are provided: buddy-test.c and malloc-test.c. They run identical tests using the two different allocators - your allocator and the default malloc allocator. You should not modify these two files! In addition, there is a unit test file buddy-unit-test.c, to which you are recommended to add more tests.
-
-This is how you should run the buddy-unit-test program:
+Also, a process which holds 600 lottery tickets doesn't always finish the task faster than the process which holds 550 tickets, as shown below, some fluctuation is normal and acceptable.
 
 ```console
-(base) [@onyx ]$ ./buddy-unit-test s
-(base) [@onyx ]$ ./buddy-unit-test v
+[cs452@localhost scheduler]$ ./lexus-test3.sh 
+[cs452@localhost scheduler]$ pid 3468, with 550 tickets: computing lucas(44) took 27.53 seconds.
+pid 3471, with 600 tickets: computing lucas(44) took 31.15 seconds.
+pid 3466, with 250 tickets: computing lucas(44) took 42.63 seconds.
+pid 3464, with 100 tickets: computing lucas(44) took 47.52 seconds.
+pid 3467, with 50 tickets: computing lucas(44) took 56.11 seconds.
+pid 3469, with 20 tickets: computing lucas(44) took 73.45 seconds.
+pid 3470, with 10 tickets: computing lucas(44) took 76.61 seconds.
+pid 3465, with 5 tickets: computing lucas(44) took 81.10 seconds.
 ```
 
-*s* stands for silent, *v* stands for verbose. Thus *v* shows you more debugging information.
+In addition, when your results do not seem to be reasonable, run the test multiple times.
 
-This is how you should run the buddy-test or malloc-test program:
+# Submission
 
-```console
-(base) [@onyx ]$ ./buddy-test 100 1234 s
-(base) [@onyx ]$ ./buddy-test 100 1234 v
-(base) [@onyx ]$ ./malloc-test 100 1234 s
-(base) [@onyx ]$ ./malloc-test 100 1234 v
-```
+Due: 23:59pm, September 8th, 2022. Late submission will not be accepted/graded.
 
-Once again, *s* stands for silent, *v* stands for verbose. *1234* is a random seed, you can use any number for the random seed. 100 means you want to run 100 iterations, each iteration will try to allocate or free some random memory blocks from your buddy memory allocator. Thus, a large number of iterations will test your buddy system more thoroughly. That is why the grading rubric says, we expect to run buddy-test against your buddy system with at least 10M iterations without crashing.
+# Grading Rubric (Undergraduate and Graduate)
+Grade: /100
 
-### Buddy System Performance
-
-Test your buddy system implementation against malloc and make sure that it outperforms it. For the purposes of measuring performance, use the buddy-test.c and malloc-test.c code provided in the sample code for this project. Here is performance comparison for the reference solution (tested on onyx, compiled with -O2 optimizer flag)
-
-```console
-[user@onyx ]$ time buddy-test 20000000 1234 s
-real    0m1.348s
-user    0m1.345s
-sys     0m0.002s
-
-[user@onyx ]$ time malloc-test 20000000 1234 s      
-real    0m2.090s
-user    0m2.088s
-sys     0m0.001s
-```
-
-## Submission
-
-Due Date:  09/22/2022, 23:59pm. Late submission will not be accepted/graded.
-
-## Project Layout
-
-All files necessary for compilation need to be submitted, this includes source code files, header files, and Makefile. The structure of the submission folder should be the same as what was given to you. Make sure to not modify the two test programs buddy-test.c and malloc-test.c, and not to modify buddy.h.
-
-## Grading Rubric (for Undergraduate Students and Graduate Students)
-
-Grade:  /100
-
+- [ 80 pts] Functional Requirements:
+  - Process registering and unregistering are successful. /10
+    - If your lottery scheduling system works as expected, you do not need to prove this; otherwise, you need to provide evidence proving your registering and unregistering are successful.
+  - Lottery scheduling produces reasonable scheduling results. Grader will test this using the testing scripts, but you should also include your testing results in the README file.
+    - lexus-test1.sh produces reasonable results. /20
+    - lexus-test2.sh produces reasonable results. /20
+    - lexus-test3.sh produces reasonable results. /20
+  - Module can be installed and removed without crashing the system: /10
+    - You won't get these points if your module doesn't implement any of the above functional requirements.
 - [10 pts] Compiling:
-	- Each compiler warning will result in a 3 point deduction.
-	- You are not allowed to suppress warnings.
-- [80 pts] Functional Requirements:
-	- Malloc and free 1 byte works (this will be reported by buddy-unit-test) (40):
-	- Allocation beyond maximum fails gracefully (this will be reported by buddy-unit-test) (10):
-	- Stability test - run buddy-test with at least 10M iterations without crashing (this will be reported by buddy-test) (25):
-	- Performance - your buddy system outperforms the default malloc/free (this will be reported by buddy-test and malloc-test) (5):
+  - Each compiler warning will result in a 3-point deduction.
+  - You are not allowed to suppress warnings. (you won't get these points if your module doesn't implement any of the above functional requirements.)
 - [10 pts] Documentation:
-	- README.md file (rename this current README file to README.orig and rename the README.template to README.md)
-	- You are required to fill in every section of the README template, missing 1 section will result in a 2-point deduction.
+  - README.md file (rename this current README file to README.orig and rename the README.template to README.md)
+  - You are required to fill in every section of the README template, missing 1 section will result in a 2-point deduction.
