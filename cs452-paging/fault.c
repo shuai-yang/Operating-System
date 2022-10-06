@@ -46,9 +46,9 @@ uintptr_t get_free_page();
 
 int infiniti_do_page_fault(struct infiniti_vm_area_struct *infiniti_vma, uintptr_t fault_addr, u32 error_code) {
 	unsigned long cr3;	
-	unsigned kernel_addr; //uintptr_t kernel_addr
 	unsigned long pml4, pdp, pd, pt;
     unsigned long *pml4_entry, *pdp_entry, *pd_entry, *pt_entry; 
+    uintptr_t kernel_addr; 
 
 	//fault_addr should within the reserved memory region and application should have permission to access fault address
 	if(is_valid_address(infiniti_vma, fault_addr)==0 || error_code == SEGV_ACCERR)
@@ -56,22 +56,50 @@ int infiniti_do_page_fault(struct infiniti_vm_area_struct *infiniti_vma, uintptr
 
 	//get the content of the cr3 register
 	cr3 = get_cr3();
-	//
-	pml4 = __va(cr3 & 0xffffffffff000); 
-	//base address + offset
-	pml4_entry = (unsigned long*)pml4 + (((fault_addr >> 39) & 0xfff) << 3);
-    //
+	pml4 = (unsigned long)__va(cr3 & 0xffffffffff000); 
+	pml4_entry = (unsigned long*)(pml4 + (((fault_addr >> 39) & 0x1ff) << 3));
+    //if bit 0 is not 1
     if(!(pml4_entry & 0x1)){
-		get_free_page();
+		kernel_addr = get_free_page();
+		printk(KERN_INFO "kernel address is %lx, and its physical address is %lx\n", kernel_addr, __pa(kernel_addr));
+		//change the PML4E's bit 0, bit 1, bit 2 to 1
 		pml4_entry = pml4_entry | 0x1;
 		pml4_entry = pml4_entry | 0x2;
-		pml4_entry = pml4_entry | 0x4
-	}
- 
-    //if
-
-	printk("Page fault!\n");
-    return -1; //return 0 if a page fault is handled successfully
+		pml4_entry = pml4_entry | 0x4;
+		//store the bits 51:12 of the allocated page's physical address into the PML4E entry's bits 51:12
+		pml4_entry & __pa(kernel_addr & 0xfffffffffff00);
+	}else{
+		pdp = (unsigned long)__va(pml4_entry & 0xffffffffff000); 
+		pdp_entry = (unsigned long*)(pdp + (((fault_addr >> 30) & 0x1ff) << 3));
+		if(!(pdp_entry & 0x1)){
+			kernel_addr = get_free_page();
+			pdp_entry = pdp_entry | 0x1;
+			pdp_entry = pdp_entry | 0x2;
+			pdp_entry = pdp_entry | 0x4;
+			pdp_entry & __pa(kernel_addr & 0xfffffffffff00);			
+		}
+	}else{
+		pd = (unsigned long)__va(pdp_entry & 0xffffffffff000);
+        pd_entry = (unsigned long*)(pd + (((fault_addr >> 21) & 0x1ff) << 3));
+		if(!(pd_entry & 0x1)){
+			kernel_addr = get_free_page();
+			pd_entry = pd_entry | 0x1;
+			pd_entry = pd_entry | 0x2;
+			pd_entry = pd_entry | 0x4;
+			pd_entry & __pa(kernel_addr & 0xfffffffffff00);
+		}
+	}else{
+		pt = (unsigned long)__va(pd_entry & 0xffffffffff000);
+		pt_entry = (unsigned long*)(p4 + (((fault_addr >> 12) & 0x1ff) << 3));
+		if(!(pt_entry & 0x1)){
+			kernel_addr = get_free_page();
+			pt_entry = pt_entry | 0x1;
+			pt_entry = pt_entry | 0x2;
+			pt_entry = pt_entry | 0x4;
+			pt_entry & __pa(kernel_addr & 0xffffffffff00);
+		}	
+	}		
+    return 0; 
 }
 
 uintptr_t get_free_page(){
@@ -86,10 +114,8 @@ uintptr_t get_free_page(){
 
 /* this function takes a user VA and free its PA as well as its kernel va. */
 void infiniti_free_pa(uintptr_t user_addr){
-	// is_entire_table_free(unsigned long table);
-	unsigned long page_table;
-	if(is_entire_table_free(page_table)){
-		do something;
+	if(is_entire_table_free(pml4)){
+		free_page(__pa());
 	}else{
 		do something;
 	}
@@ -99,4 +125,4 @@ void infiniti_free_pa(uintptr_t user_addr){
 	return;
 }
 
-/* vim: set ts=4: */
+/* vics452m: set ts=4: */
