@@ -138,11 +138,14 @@ void infiniti_free_pa(uintptr_t user_addr){
 	}
 
 	kernel_addr = (unsigned long)__va((*pt_entry & 0xffffffffff000) + (user_addr & 0xfff));
+	//kernel_addr = (unsigned long)__va(*pt_entry + (user_addr & 0xfff));
 	free_page(kernel_addr);
+	invlpg(kernel_addr);
 
 	*pt_entry = 0;
 	if(is_entire_table_free(pt)){
 		free_page(pt);
+		invlpg(pt);
 	}else{
 		return;
 	}
@@ -150,6 +153,7 @@ void infiniti_free_pa(uintptr_t user_addr){
 	*pd_entry = 0;
 	if(is_entire_table_free(pd)){
 		free_page(pd);
+		invlpg(pd);
 	}else{
 		return;
 	}
@@ -157,6 +161,7 @@ void infiniti_free_pa(uintptr_t user_addr){
 	*pdp_entry = 0;
 	if(is_entire_table_free(pdp)){
 		free_page(pdp);
+		invlpg(pdp);
 	}else{
 		return;
 	}
@@ -164,6 +169,7 @@ void infiniti_free_pa(uintptr_t user_addr){
 	*pml4_entry = 0;
 	if(is_entire_table_free(pml4)){
 		free_page(pml4);
+		invlpg(pml4);
 	}else{
 		return;
 	}
