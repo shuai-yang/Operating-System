@@ -43,7 +43,7 @@ int is_entire_table_free(unsigned long table){
  * return 0 if handled successful; otherwise return -1.
  * */
 
-uintptr_t get_free_page(){
+uintptr_t get_free_page(void){
 	uintptr_t kernel_addr = 0;
 	kernel_addr = (uintptr_t)get_zeroed_page(GFP_KERNEL);
 	if (!kernel_addr) {
