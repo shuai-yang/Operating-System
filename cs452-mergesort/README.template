@@ -1,19 +1,20 @@
-## Project Number/Title 
+## Parallel Merge Sort 
 
-* Author: Your Name
-* Class: CS452/CS552 [Operating Systems] Section #num
+* Author: Sharon Yang
+* Class: CS452/CS552 [Operating Systems] Section #01
 
 ## Overview
 
-Concisely explain what the program does. If this exceeds a couple of
-sentences, you're going too far. Generally you should be pulling this
-right from the project specification. We don't want you to just cut and
-paste, but paraphrase what is stated in the project specification.
+I implemented a multi-threaded version of merge sort algorithm (also known as parallel merge sort) using the pthread library.
 
 ## Manifest
 
-A listing of source files and other non-generated files and a brief (one line)
-explanation of the purpose of each file.
+--- mergesort.c</br>
+--- mergesort.h</br>
+--- runval.sh</br>
+--- test-mergesort.c</br>
+
+I only modified mergesort.c. Runval.sh valgrind no memory leak. Test-mergesort.c 
 
 ## Building the project
 
@@ -23,22 +24,21 @@ it? Is this an executable, if so how can a user get up to speed as fast
 as possible.
 
 ## Features and usage
-
-Summarize the main features of your program. It is also appropriate to
-instruct the user how to use your program.
-
+Usage: ./test-mergesort <input size> <cutoff level> <seed>
+For example ./test-mergesort 100 1 1234
 ## Testing
 
-This section should detail how you tested your code. Simply stating "I ran
-it a few times and it seems to work" is not sufficient. Your testing needs to
-be detailed here.
-
+The testing program test-mergesort.c takes 3 parameters. The first parameter is the size of the array. 
+The second parameter is the cutoff value. The third parameter is a random seed.
+The testing program will show timing results for the single thread merge sort when the number of level is 0, and show timing results of the parallel merge sort when the number of level is larger than 0.
+Compared to serial merge sort, I expect my parallel merge sort get a speedup of at least 2 on onyx using array size n = 100 millions. 
 ## Known Bugs
 
 List known bugs that you weren't able to fix (or ran out of time to fix).
 
 ## Reflection and Self Assessment
 
+memory profilers like valgrind o
 Discuss the issues you encountered during development and testing. What
 problems did you have? What did you have to research and learn on your
 own? What kinds of errors did you get? How did you fix them?
@@ -48,6 +48,8 @@ finally "clicked" for you in the process of working on this project? How well
 did the development and testing process go for you?
 
 ## Sources Used
+https://www.youtube.com/watch?v=KF2j-9iSf4Q&t=372s
 
-If you used any sources outside of the text book you should list them here. If you looked something up on
-stackoverflow.com and fail to cite it in this section it will be considered plagiarism and be dealt with accordingly. So be safe CITE!
+Leetcode Problem 88 - Merge Sorted Array[https://leetcode.com/problems/merge-sorted-array/]
+Leetcode Problem 912 - Sort an Array
+Leetcode Problem 148 - Sort List
