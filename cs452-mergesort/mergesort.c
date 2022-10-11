@@ -10,48 +10,34 @@
 #include <sys/types.h> /* for thread id*/
 #include "mergesort.h"
 
+void printArr(int*, int);
 
 /* this function will be called by mergesort() and also by parallel_mergesort(). */
 void merge(int leftstart, int leftend, int rightstart, int rightend){  // leetcode 88
-	//printf("merge() called\n");
-	//int left = leftstart;
-	//int right = rightstart;
-	//int index = leftstart;
-	int index = 0;
-	while(leftstart <= leftend && rightstart <= rightend){
-		if(A[leftstart] < A[rightstart]){
-			B[index] = A[leftstart];
-			leftstart ++;
+	int index = leftstart;
+	int leftPos = leftstart;
+	int rightPos = rightstart;
+	while(leftPos <= leftend && rightPos <= rightend){
+		if(A[leftPos] < A[rightPos]){
+			B[index] = A[leftPos];
+			leftPos ++;
 		}else{
-			B[index] = A[rightstart];
-			rightstart ++;
+			B[index] = A[rightPos];
+			rightPos ++;
 		}
-		index ++;
+		index++;
 	}
-	//void *memcpy(void *dest, const void *src, size_t n);
-	memcpy(B + index, A + leftstart, (leftend - leftstart + 1)*sizeof(int));
-	memcpy(B + index, A + rightstart, (rightend - rightstart + 1)*sizeof(int));
-	memcpy(A, B, (int)sizeof(B));
-	free(B);
-
-	/*
-	while (leftstart <= leftend) {
-		B[index++] = A[leftstart++];
+	if (leftPos <= leftend) {
+		memcpy(&B[index], &A[leftPos], (leftend - leftPos + 1) * sizeof(int));
+	} else {
+		memcpy(&B[index], &A[rightPos], (rightend - rightPos + 1) * sizeof(int));
 	}
-	while (rightstart <= rightend) {
-		B[index++] = A[leftstart++];
-	}
-	index = 0;
-	for (i = leftstart; i <= rightend; i++) {
-		A[i] = B[index++];
-	}
-	*/
+	memcpy(&A[leftstart], &B[leftstart], sizeof(int) * (rightend - leftstart + 1));
 	return;
 } 
 
 /* this function will be called by parallel_mergesort() as its base case. */
-void mergesort(int left, int right){
-	//printf("mergesort() called\n");
+void mergesort(int left, int right) {
 	if(left >= right){return;}
 	int mid = (left + right) / 2;
 	mergesort(left, mid);
@@ -62,56 +48,34 @@ void mergesort(int left, int right){
 
 /* this function will be called by the testing program. */
 void * parallel_mergesort(void *arg){
-		//printf("parallel_mergesort() called\n");
 		struct argument* myarg = (struct argument*) arg;
-		int startIndex = myarg->left;
-		//printf("startIndex is %d\n", startIndex);
-		int endIndex = myarg->right;
-		//printf("endIndex is %d\n", endIndex);
-		int i;
-
-		//base case
-		if(startIndex >= endIndex){return mergesort(startIndex, endIndex);}
-
+		int left = myarg->left;
+		int right = myarg->right;
+		int level = myarg->level;
 		pthread_t p1, p2;
 		struct argument *leftArr;
 		struct argument *rightArr;
-		int midIndex = (startIndex + endIndex) / 2;
-		//printf("MidIndex is %d\n", midIndex);
-		printf("\nArr:");
-		for(i=startIndex ; i<=endIndex; i++){
-			printf(" %d", A[i]);
+
+		int mid = (left +  right) / 2;
+		
+		//base case
+		if(level == cutoff){
+			mergesort(left, right);
 		}
-		leftArr = (struct argument*)buildArgs(startIndex, midIndex, myarg->level - 1);
-		//leftArr.left = startIndex;
-		//leftArr.right = midIndex;
-		//leftArr.level = myarg->level - 1;
-		rightArr = (struct argument*)buildArgs(midIndex + 1, endIndex, myarg->level - 1);
-		//rightArr.left = midIndex + 1;
-		//rightArr.right = endIndex;
-		//rightArr.level = myarg->level - 1;
-		printf("\nleftArr:");
-		for(i=leftArr->left; i<=leftArr->right; i++){
-			printf(" %d", A[i]);
-		}
-		printf("\nrightArr: ");
-		for(i=rightArr->left; i<=rightArr->right; i++){
-			printf(" %d", A[i]);
-		}
-		//mergesort(aleftArr->left , rightArr->right);
-		pthread_create(&p1, NULL, parallel_mergesort, (void*)leftArr);
-		//mergesort(leftArr.left, leftArr.right);
-		//printf("\np1 is %ld", pthread_self());
-		pthread_create(&p2, NULL, parallel_mergesort, (void*)rightArr);
-		//mergesort(rightArr.left, rightArr.right);
-		//printf("\np2 is %ld", pthread_self());
-		pthread_join(p1, NULL); 
-		//mergesort(leftArr.left, leftArr.right);
-		//merge(leftArr.left, leftArr.right, rightArr.left, rightArr.right);
-		pthread_join(p2, NULL); 
-		mergesort(rightArr->left, rightArr->right);
-		merge(leftArr->left, leftArr->right, rightArr->left, rightArr->right);
-		return;  // what to be returned? 
+		//if (level == cutoff) {
+		//	mergesort(left, right);
+		//} else {
+			leftArr = (struct argument *)buildArgs(left, mid, level + 1);
+			rightArr = (struct argument *)buildArgs(mid + 1, right, level + 1);
+			pthread_create(&p1, NULL, parallel_mergesort, (void*)leftArr);
+			pthread_create(&p2, NULL, parallel_mergesort, (void*)rightArr);
+			pthread_join(p1, NULL); 
+			pthread_join(p2, NULL); 
+			merge(left, mid, mid+1, right);
+
+			free(leftArr);
+			free(rightArr);
+		//}
 }
 
 /* we build the argument for the parallel_mergesort function. */
@@ -127,8 +91,14 @@ struct argument * buildArgs(int left, int right, int level){
 }
 /* vim: set ts=4: */
 
+void printArr(int* arr, int size){
+	int i;
+ 	for (i = 0; i < size; i++){
+        printf("%d\t", arr[i]);
+    }
+    printf("\n");
+}
 
-void Input_print(void);
 /*
 int main(void)
 {
@@ -142,26 +112,26 @@ int main(void)
 
 void Input_print(void)
 {
-	int n;
-	int arr[100000];
+	int n, i;
+	int *arr;
     printf("Please enter the length of the array:\n");
     scanf("%d",&n);
 	arr = malloc(sizeof(int) * n);
 	B =  malloc(sizeof(int) * n);
     printf("Randomly generate random %d numbers in the array:\n",n);
     srand((unsigned )time(NULL));
-    for(i=0;i<n;i++)
-    {
+    for(i=0;i<n;i++){
         arr[i]=1+rand()%(10);
     }
-    for (i = 0; i < n; i++)
-    {
+    for (i = 0; i < n; i++){
         printf("%d\t",arr[i]);
     }
     printf("\n");
 
     struct argument *arg=buildArgs(0, n-1, 0);
-	parallel_mergesort(arg);
+	//test serial merge sort
+	mergesort(0, n-1);
+	//parallel_mergesort(arg);
 
     printf("The sorted arry is:\n" );
     for(i=1;i<=n;i++)
