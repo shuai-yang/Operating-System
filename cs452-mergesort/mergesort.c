@@ -27,11 +27,11 @@ void merge(int leftstart, int leftend, int rightstart, int rightend){  // leetco
 		}
 		index++;
 	}
-	if (leftPos <= leftend) {
+	//if (leftPos <= leftend) {
 		memcpy(&B[index], &A[leftPos], (leftend - leftPos + 1) * sizeof(int));
-	} else {
+	//} else {
 		memcpy(&B[index], &A[rightPos], (rightend - rightPos + 1) * sizeof(int));
-	}
+	//}
 	memcpy(&A[leftstart], &B[leftstart], sizeof(int) * (rightend - leftstart + 1));
 	return;
 } 
