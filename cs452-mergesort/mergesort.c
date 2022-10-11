@@ -61,6 +61,7 @@ void * parallel_mergesort(void *arg){
 		//base case
 		if(level == cutoff){
 			mergesort(left, right);
+			return;
 		}
 		//if (level == cutoff) {
 		//	mergesort(left, right);
