@@ -127,6 +127,36 @@ void request_handle(int fd) {
     }
 }
 
+
+// create a doubly linked list pointed to by list
+struct *list;
+list = createList(compareToItem, toStringItem, freeItem); 
+
+void producer(int fd){
+	while(size(list) < 5){
+		struct item *item;
+		struct node *node;
+		pthread_mutex_t lock;
+		item = createItem(fd, 1); 
+		node = createNode(item);
+		
+		pthread_mutex_lock(&lock);
+		addAtRear(list, node);
+		pthread_mutex_unlock(&lock);
+	}
+}
+
+void *consumer(void *ptr){
+	struct item *item;
+	struct node *node;
+	node = removeFront(list);
+	if(node){
+		item=(struct item *)(node->obj);
+		
+	//request_handle();
+	return null;
+}
+
 int main(int argc, char *argv[]) {
     int c;
     char *root_dir = default_root;
