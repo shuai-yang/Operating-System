@@ -127,11 +127,6 @@ void request_handle(int fd) {
     }
 }
 
-
-// create a doubly linked list pointed to by list
-struct *list;
-list = createList(compareToItem, toStringItem, freeItem); 
-
 void producer(int fd){
 	while(size(list) < 5){
 		struct item *item;
@@ -143,25 +138,54 @@ void producer(int fd){
 		pthread_mutex_lock(&lock);
 		addAtRear(list, node);
 		pthread_mutex_unlock(&lock);
+		while(list->size >= capacity){
+			//before goingto sleep, release 
+			pthread_cond_wait(&(), &());
+		}
 	}
 }
 
 void *consumer(void *ptr){
-	struct item *item;
-	struct node *node;
-	node = removeFront(list);
-	if(node){
+	while(1){
+		struct item *item;
+		struct node *node;
+		node = removeFront(list);
+		if(node){
 		item=(struct item *)(node->obj);
-		
-	//request_handle();
+		}
+		while(list->size==0){
+			pthread_cond_wait();
+		}
+		request_handle();
+		close(fd);
+	}
 	return null;
 }
+
+
+
+pthread_mutex_t mutex
+pthread_cond_t producer 
+pthread_cond_t consumer
+
+
+
+
+
+
+
+
 
 int main(int argc, char *argv[]) {
     int c;
     char *root_dir = default_root;
     int port = 10000;
     
+	// create a doubly linked list pointed to by list
+	struct *list;
+	list = createList(compareToItem, toStringItem, freeItem); 
+	int capacity = 5;
+
     while ((c = getopt(argc, argv, "p:")) != -1){
 		switch (c) {
 		/* the user specifies port number. the web server will then listen on this port. */
@@ -199,10 +223,10 @@ int main(int argc, char *argv[]) {
 
 		/* read data from the connection. we have two file descriptors here,
 		 * we use sockfd to listen to the port, and we use newsockfd to actually transfer data. */
-		request_handle(newsockfd);
-
+		//request_handle(newsockfd);
+		producer(newsockfd);
 		/* close this one connection */
-		close(newsockfd);
+		//close(newsockfd);
 	}
 	/* if we ever get here, then close the pipe and don't listen anymore. */
 	close(sockfd);
