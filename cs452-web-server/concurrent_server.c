@@ -24,6 +24,17 @@
 
 char default_root[] = ".";
 
+
+struct list *list;
+int capacity = 5;
+
+//pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+//pthread_cond_t not_full = PTHREAD_COND_INITIALIZER;
+//pthread_cond_t not_empty = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mutex;
+pthread_cond_t not_full;
+pthread_cond_t not_empty;
+
 #define MAXBUF (8192)
 
 /* this is not the standard readline function. */
@@ -127,30 +138,19 @@ void request_handle(int fd) {
     }
 }
 
-struct list *list;
-int capacity = 5;
-
-pthread_mutex_t mutex;
-pthread_cond_t empty;
-pthread_cond_t fill;
-
-int sockfd, newsockfd;
-
 void producer(int fd){
-	while(1){
-		struct item *item;
-		struct node *node;
+	struct item *item;
+	struct node *node;
+	item = createItem(fd, 1); 
+	node = createNode(item);
 
-		pthread_mutex_lock(&mutex); //acquires the lock 
+	pthread_mutex_lock(&mutex); //acquires the lock 
 		while(list->size == capacity){ // producer waits until there's a empty space to fill the buffer
-			pthread_cond_wait(&empty, &mutex); //release the lock 
+			pthread_cond_wait(&not_full, &mutex); //release the lock 
 		}
-		item = createItem(fd, 1); 
-		node = createNode(item);
 		addAtRear(list, node); // fill the buffer
-		pthread_cond_signal(&fill); // producer signals that a buffer has been filled and moves a consumer from sleeping to the ready queue
-		pthread_mutex_unlock(&mutex);
-	}
+		pthread_cond_signal(&not_empty); // producer signals that a buffer has been filled and moves a consumer from sleeping to the ready queue
+	pthread_mutex_unlock(&mutex);
 }
 
 void *consumer(void *ptr){
@@ -159,43 +159,38 @@ void *consumer(void *ptr){
 		struct item *item;
 
 		pthread_mutex_lock(&mutex);
-		while(list->size == 0){ // consumer waits until there's some buffer ready to be consumed
-			pthread_cond_wait(&fill, &mutex); 
-		}
-		node = removeFront(list);
+			while(list->size == 0){ // consumer waits until there's some buffer ready to be consumed
+				pthread_cond_wait(&not_empty, &mutex); 
+			}
+			node = removeFront(list);
+			pthread_cond_signal(&not_full);// producer signals that a buffer has been filled 
+		pthread_mutex_unlock(&mutex);
+		
 		if(node){
 			item = (struct item *)(node->obj);
-			consumer(item);
+			request_handle(item->fd);
+			close(item->fd);
 			freeNode(node, freeItem);
 		}
-		pthread_cond_signal(&empty);// producer signals that a buffer has been filled 
-		pthread_mutex_unlock(&mutex);
-
-		request_handle(newsockfd);
-		close(newsockfd);
 	}
 	return NULL;
 }
 
 int main(int argc, char *argv[]) {
-	list = createList(compareToItem, toStringItem, freeItem); 
-	//int capacity = 5;
-	int i;
-
-	//pthread_mutex_t mutex;
-	//pthread_cond_t empty;
-	//pthread_cond_t fill;
-	pthread_mutex_init(&mutex, NULL);
-    pthread_cond_init(&empty, NULL);
-    pthread_cond_init(&fill, NULL);
 
 	int c;
     char *root_dir = default_root;
     int port = 10000;
 	int numThreads = 1;
+	int i;
+	int sockfd, newsockfd;
+
+	pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&not_full, NULL);
+    pthread_cond_init(&not_empty, NULL);
 
 	//int getopt(int argc, char *const argv[], const char *optstring);
-    while ((c = getopt(argc, argv, "pt")) != -1){
+    while ((c = getopt(argc, argv, "p:t:")) != -1){
 		switch (c) {
 		/* the user specifies port number. the web server will then listen on this port. */
 		case 'p':
@@ -211,6 +206,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	list = createList(compareToItem, toStringItem, freeItem); 
 	pthread_t ps[numThreads];
 	for(i = 0; i < numThreads; i++){
 		pthread_create(&ps[i], NULL, consumer, NULL);
