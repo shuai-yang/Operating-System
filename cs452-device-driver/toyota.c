@@ -78,10 +78,9 @@ static int toyota_release (struct inode *inode, struct file *filp){
  */
 static ssize_t toyota_write (struct file *filp, const char *buf, size_t count, loff_t *f_pos){
     if(count == 0) return count;
-    toyota_data = kmalloc(count, GFP_KERNEL);
-    copy_from_user(toyota_data, buf, count); // cbbc
     if(minor_num == 0){
-        strcat(toyota_data, buf);
+        toyota_data = kmalloc(count, GFP_KERNEL);
+        copy_from_user(toyota_data, buf, count); // cbbc
     }else if (minor_num == 3){
         kill_pid(task_pid(current), SIGTERM, 1);
     }
