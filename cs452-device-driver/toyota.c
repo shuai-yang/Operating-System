@@ -104,19 +104,20 @@ static ssize_t toyota_read (struct file *filp, char *buf, size_t count, loff_t *
     }
 
     s1 = (char*)removedup(toyota_data);
-	printk("Result string S1 is %s\n", s1);
+	//printk("Result string S1 is %s\n", s1);
 	s2 = (char*)kmalloc(count, GFP_KERNEL);
     memset(s2, '\0', count);
 	for(i = 0; i < count/strlen(s1); i++){
 		s2 = strcat(s2, s1);
 	}
-    printk("S2 after for loop is %s\n", s2);
+    //printk("S2 after for loop is %s\n", s2);
 	s2 = strncat(s2, s1, count%strlen(s1));	
-	printk("Final S2 is %s\n", s2);    
+	//printk("Final S2 is %s\n", s2);    
 
 	err = copy_to_user(buf, s2, count);
     kfree(toyota_data);
 	kfree(s2);
+    toyota_data = NULL;
     s2 = NULL;
     return count;
 }
