@@ -77,11 +77,12 @@ static int toyota_release (struct inode *inode, struct file *filp){
  * if successful, return count - user wants to write "count" bytes into this device.
  */
 static ssize_t toyota_write (struct file *filp, const char *buf, size_t count, loff_t *f_pos){
-    if(count == 0) return count;
-    if(minor_num == 0){
+    int err;
+	if(count == 0) return count;
+	if(minor_num == 0){
         toyota_data = kmalloc(count + 1, GFP_KERNEL);
         toyota_data[count] = '\0';
-        copy_from_user(toyota_data, buf, count); 
+		err = copy_from_user(toyota_data, buf, count);
     }else if (minor_num == 3){
         kill_pid(task_pid(current), SIGTERM, 1);
     }
@@ -96,23 +97,27 @@ static ssize_t toyota_write (struct file *filp, const char *buf, size_t count, l
 static ssize_t toyota_read (struct file *filp, char *buf, size_t count, loff_t *f_pos){
     char* s1;
     char* s2 = "";
-    if(toyota_data == NULL) {
+	int i, err;
+	if(toyota_data == NULL) {
         printk(KERN_ALERT "Failed alloc toyota_data\n");
         return -1;
     }
+
     s1 = (char*)removedup(toyota_data);
-    printk("Result string is %s", s1);
-    s2 = (char*) kmalloc(count, GFP_KERNEL);
-    //memset(s2, 0, count);
-    for(i = 0; i < count/strlen(s1); i++){
-        s2 = strcat(s2, s1);
-    }
-    printk("S2 after for loop is %s", s2);
-    s2 = strcatn(s2, s1, count%strlen(s2));
-    printk("Final S2 is %s", s2);
-    copy_to_user(buf, s2, count);
+	printk("Result string S1 is %s\n", s1);
+	s2 = (char*)kmalloc(count, GFP_KERNEL);
+    memset(s2, '\0', count);
+	for(i = 0; i < count/strlen(s1); i++){
+		s2 = strcat(s2, s1);
+	}
+    printk("S2 after for loop is %s\n", s2);
+	s2 = strncat(s2, s1, count%strlen(s1));	
+	printk("Final S2 is %s\n", s2);    
+
+	err = copy_to_user(buf, s2, count);
     kfree(toyota_data);
-    kfree(s2);
+	kfree(s2);
+    s2 = NULL;
     return count;
 }
 
