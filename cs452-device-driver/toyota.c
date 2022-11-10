@@ -43,8 +43,10 @@ static struct file_operations toyota_fops = {
 
 // define global variables
 char* toyota_data = NULL;
-int majorn_num;
+int major_num;
 int minor_num;
+
+char* removedup(char* str);
 
 /*
  * open. if successful, return 0.
@@ -75,15 +77,14 @@ static int toyota_release (struct inode *inode, struct file *filp){
  * if successful, return count - user wants to write "count" bytes into this device.
  */
 static ssize_t toyota_write (struct file *filp, const char *buf, size_t count, loff_t *f_pos){
+    if(count == 0) return count;
+    toyota_data = kmalloc(count, GFP_KERNEL);
+    copy_from_user(toyota_data, buf, count); // cbbc
     if(minor_num == 0){
-
-    }else if (minor_num == 1 || minor_num == 2){
-
+        strcat(toyota_data, buf);
     }else if (minor_num == 3){
         kill_pid(task_pid(current), SIGTERM, 1);
     }
-    toyota_data = kmalloc(count, GFP_KERNEL);
-    copy_from_user(toyota_data, buf, count);
 	return count;
 }
 
@@ -94,13 +95,14 @@ static ssize_t toyota_write (struct file *filp, const char *buf, size_t count, l
  */
 static ssize_t toyota_read (struct file *filp, char *buf, size_t count, loff_t *f_pos){
     char* s1;
-    char* s2;
-    toyota_data = kmalloc(count, GFP_KERNEL);
+    char* s2 = "";
+    s1 = (char*)removedup(toyota_data);
+    s2 = kmalloc(count, GFP_KERNEL);
+    //memset(file_operations, 0, sizeof(struct file_operations);
     if(toyota_data == NULL) {
         printk(KERN_ALERT "Failed alloc toyota_data\n");
         return -1;
     }
-    s1 = removedup(toyota_data);
     s2 = strcat(s2, s1);
     copy_to_user(buf, s2, count);
     kfree(toyota_data);
@@ -112,14 +114,14 @@ static ssize_t toyota_read (struct file *filp, char *buf, size_t count, loff_t *
  */
 
 static int __init toyota_init(void){
-    struct linux_dirent *dirp_kernel  = kmalloc( GFP_KERNEL)
-    memset(file_operations, 0, sizeof(struct file_operations)// set the allocated memory to 0.
 	/*
 	 * register your major, and accept a dynamic number.
 	 */
     major_num = register_chrdev(0, "toyota", &toyota_fops);
-    if(major_num < 0) return -1;
-
+    if(major_num < 0){
+        printk("toyota can't register major number\n");
+        return -1;
+    }
 	return 0;
 }
 
@@ -128,10 +130,13 @@ static int __init toyota_init(void){
  */
 
 static void __exit toyota_exit(void){
-    kfree(toyota_data);
     /* reverse the effect of register_chrdev(). */
     unregister_chrdev(major_num, "toyota"); 
 }
+
+/*
+ * removedup()
+ */
 
 char* removedup(char* str){
     int length = (int)strlen(str);
@@ -148,15 +153,13 @@ char* removedup(char* str){
         return str;
     }
 
-    int counts[26] = {0};
-    int i;
     for (i = 0; i < length; i++){
         counts[str[i] - 'a'] ++;
     }
 
-    *stack = (char *)malloc((length + 1) * sizeof(char));
+    stack = (char *)kmalloc((length + 1) * sizeof(char), GFP_KERNEL);
 
-    for (int i = 0; i < length; i++) {
+    for (i = 0; i < length; i++) {
         char curChar = str[i];
         int curIndex = str[i] - 'a';
         if(!inStack[curIndex]){
@@ -171,7 +174,7 @@ char* removedup(char* str){
         counts[curIndex]--;
     }
     top++;
-    stack[] = '\0';
+    stack[top] = '\0';
     return stack;
 }
 
