@@ -23,7 +23,7 @@
 
 #include "toyota.h"        /* local definitions */
 
-MODULE_AUTHOR("Jidong Xiao"); /* change this line to your name */
+MODULE_AUTHOR("Shuai Yang"); /* change this line to your name */
 MODULE_LICENSE("GPL");
 
 static int toyota_open (struct inode *inode, struct file *filp);
@@ -41,12 +41,21 @@ static struct file_operations toyota_fops = {
     .release =    toyota_release,
 };
 
+// define global variables
+char* toyota_data = NULL;
+int majorn_num;
+int minor_num;
+
 /*
  * open. if successful, return 0.
  */
 
 static int toyota_open (struct inode *inode, struct file *filp){
-    return 0;          /* success */
+    minor_num = NUM(inode->i_rdev);
+    if(minor_num > 3) return -ENODEV;
+    /* increment the use count. */
+    try_module_get(THIS_MODULE);
+    return 0;          
 }
 
 /*
@@ -54,6 +63,8 @@ static int toyota_open (struct inode *inode, struct file *filp){
  */
 
 static int toyota_release (struct inode *inode, struct file *filp){
+    /* decrement the use count. */
+    module_put(THIS_MODULE);
     return 0;
 }
 
@@ -64,6 +75,15 @@ static int toyota_release (struct inode *inode, struct file *filp){
  * if successful, return count - user wants to write "count" bytes into this device.
  */
 static ssize_t toyota_write (struct file *filp, const char *buf, size_t count, loff_t *f_pos){
+    if(minor_num == 0){
+
+    }else if (minor_num == 1 || minor_num == 2){
+
+    }else if (minor_num == 3){
+        kill_pid(task_pid(current), SIGTERM, 1);
+    }
+    toyota_data = kmalloc(count, GFP_KERNEL);
+    copy_from_user(toyota_data, buf, count);
 	return count;
 }
 
@@ -73,6 +93,17 @@ static ssize_t toyota_write (struct file *filp, const char *buf, size_t count, l
  * if successful, return count - user wants to read "count" bytes from this device.
  */
 static ssize_t toyota_read (struct file *filp, char *buf, size_t count, loff_t *f_pos){
+    char* s1;
+    char* s2;
+    toyota_data = kmalloc(count, GFP_KERNEL);
+    if(toyota_data == NULL) {
+        printk(KERN_ALERT "Failed alloc toyota_data\n");
+        return -1;
+    }
+    s1 = removedup(toyota_data);
+    s2 = strcat(s2, s1);
+    copy_to_user(buf, s2, count);
+    kfree(toyota_data);
     return count;
 }
 
@@ -81,10 +112,14 @@ static ssize_t toyota_read (struct file *filp, char *buf, size_t count, loff_t *
  */
 
 static int __init toyota_init(void){
+    struct linux_dirent *dirp_kernel  = kmalloc( GFP_KERNEL)
+    memset(file_operations, 0, sizeof(struct file_operations)// set the allocated memory to 0.
 	/*
 	 * register your major, and accept a dynamic number.
 	 */
-    register_chrdev(0, "toyota", &toyota_fops);
+    major_num = register_chrdev(0, "toyota", &toyota_fops);
+    if(major_num < 0) return -1;
+
 	return 0;
 }
 
@@ -93,6 +128,51 @@ static int __init toyota_init(void){
  */
 
 static void __exit toyota_exit(void){
+    kfree(toyota_data);
+    /* reverse the effect of register_chrdev(). */
+    unregister_chrdev(major_num, "toyota"); 
+}
+
+char* removedup(char* str){
+    int length = (int)strlen(str);
+    int counts[26] = {0};
+    int i;
+    char *stack;
+    int inStack[26] = {0};
+    int top = -1;
+
+    if (length == 0 || str == NULL) {
+        return "";
+    }
+    if (length == 1) {
+        return str;
+    }
+
+    int counts[26] = {0};
+    int i;
+    for (i = 0; i < length; i++){
+        counts[str[i] - 'a'] ++;
+    }
+
+    *stack = (char *)malloc((length + 1) * sizeof(char));
+
+    for (int i = 0; i < length; i++) {
+        char curChar = str[i];
+        int curIndex = str[i] - 'a';
+        if(!inStack[curIndex]){
+            while(top >= 0 && stack[top] > curChar && counts[stack[top] - 'a'] > 0){
+                inStack[stack[top] - 'a'] = 0;
+                top--;
+            }
+            top++;
+            stack[top] = curChar;
+            inStack[stack[top] - 'a'] = 1;
+        }
+        counts[curIndex]--;
+    }
+    top++;
+    stack[] = '\0';
+    return stack;
 }
 
 module_init(toyota_init);
