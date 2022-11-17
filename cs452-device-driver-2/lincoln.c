@@ -121,7 +121,7 @@ static struct proc_dir_entry *pdir;
  * the parameter flags won't be used in this program. */
 static irqreturn_t lincoln_irq_handler(struct serio *serio, unsigned char data, unsigned int flags)
 {
-	char code = data & 0x80;
+	char code = data & 0x7f;
 	int value;
 	if(data >> 7 == 1){
 		value = 0;
@@ -138,9 +138,8 @@ static irqreturn_t lincoln_irq_handler(struct serio *serio, unsigned char data, 
 	else {
 		struct atkbd *atkbd = serio_get_drvdata(serio);	
 		struct input_dev *dev = atkbd->dev;
-		
-		if(value == 1 && code == 0x26){code = 0x1f;}
-		else if(value == 1 && code == 0x1f){code = 0x26;}		
+		if(code == 0x26){code = 0x1f;}
+		else if(code == 0x1f){code = 0x26;}		
 
 		input_event(dev, EV_KEY, code, value); 
 		input_sync(dev); 	
@@ -160,11 +159,11 @@ struct spinlock *i8042_lock;
 static int lincoln_kbd_write(struct serio *port, unsigned char c)
 {	
 	int counter = 0;
-	while((inb(I8042_STATUS_REG) & I8042_STR_IBF) == 1  && counter <= I8042_CTL_TIMEOUT){
+	while((inb(I8042_STATUS_REG) & I8042_STR_IBF) && counter < I8042_CTL_TIMEOUT){
 		udelay(50);
 		counter++;
 	}
-	if(counter > I8042_CTL_TIMEOUT){
+	if(counter == I8042_CTL_TIMEOUT){
 		printk("Time out! Writing faild.");
 		return -1;
 	}
