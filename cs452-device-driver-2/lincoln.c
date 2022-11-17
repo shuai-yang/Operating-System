@@ -134,7 +134,17 @@ struct spinlock *i8042_lock;
  * return 0 if successful; return -1 if not successful.
  * */
 static int lincoln_kbd_write(struct serio *port, unsigned char c)
-{
+{	
+	int counter = 0;
+	while(inb(I8042_STATUS_REG)&I8042_STR_IBF == 0 && counter <= I8042_CTL_TIMEOUT){
+		udelay(50);
+		counter++
+	}
+	if(counter > I8042_CTL_TIMEOUT){
+		printk("Time out! Writing faild.");
+		return -1;
+	}
+	outb(c, I8042_DATA_REG);
 	return 0;
 }
 
