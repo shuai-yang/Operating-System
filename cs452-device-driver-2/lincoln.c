@@ -121,13 +121,33 @@ static struct proc_dir_entry *pdir;
  * the parameter flags won't be used in this program. */
 static irqreturn_t lincoln_irq_handler(struct serio *serio, unsigned char data, unsigned int flags)
 {
-	char code = data & 0x7f;
+	char code;
 	int value;
+	int flag = 0;
+	
+	code = data & 0x7f;
 	if(data >> 7 == 1){
-		value = 0;
+		value = 0; //this action is release
+		
+		if(code == 0xaa && flag == 1){
+			code = data & 0x7f;
+			flag = 0;
+		}else{
+			// left shift key is presssed
+			if(code == 0x2a){		
+				flag = 1;
+			}
+			// protocal scancode 
+			if(code == 0xaa){
+				printk("BAT OK.");
+				return IRQ_HANDLED;
+			}
+		}
+		code = code & 0x7f;
+
 	}else{
 		value = 1;
-	}
+	}	
 
 	if(data == ATKBD_RET_BAT){
 		printk("keyboard reset okay.");
