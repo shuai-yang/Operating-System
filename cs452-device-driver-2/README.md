@@ -45,7 +45,7 @@ None
 
 ## Reflection and Self Assessment
 
-The program went crash during the first attempt of testing because the code and value were not derived correctly from data parameter. I reviewed the bitwise operator and corrected the error accordingly. For the left-shift key implementation, I reset the flag be global variable and reorder the conditions where the shift key was just released and where it was pressed and hold. Once these changes were made, it program works <br>
+The program crashed during the first attempt of testing because the code and value were not derived correctly from data parameter. I reviewed the bitwise operator and corrected the error accordingly. For the left-shift key implementation, I reset the flag be global variable and reorder the conditions where the shift key was just released and where it was pressed and hold. Once these changes were made, the program works. <br>
 
 
 ## Sources Used
