@@ -59,6 +59,8 @@ MODULE_LICENSE("GPL v2");	/* without saying this, we won't be able to use kallsy
 #define ATKBD_RET_HANGEUL       0xf2	/* */
 #define ATKBD_RET_ERR           0xff	/* Keyboard error */
 
+int flag = 0; // release = 0, press = 1
+
 struct i8042_port {
         struct serio *serio;
         int irq;
@@ -123,32 +125,29 @@ static irqreturn_t lincoln_irq_handler(struct serio *serio, unsigned char data, 
 {
 	char code;
 	int value;
-	int flag = 0;
-	
+ 	struct atkbd *atkbd;
+	struct input_dev *dev;
+
 	code = data & 0x7f;
 	if(data >> 7 == 1){
-		value = 0; //this action is release
-		
-		if(code == 0xaa && flag == 1){
-			code = data & 0x7f;
-			flag = 0;
-		}else{
-			// left shift key is presssed
-			if(code == 0x2a){		
-				flag = 1;
-			}
-			// protocal scancode 
-			if(code == 0xaa){
-				printk("BAT OK.");
-				return IRQ_HANDLED;
-			}
-		}
-		code = code & 0x7f;
-
+		value = 0; 
 	}else{
-		value = 1;
+		value = 1; 
 	}	
+	
+	if(flag == 1 && data == 0xaa){
+                flag = 0;
 
+                atkbd = serio_get_drvdata(serio);
+                dev = atkbd->dev;
+
+		if(code == 0x26){code = 0x1f;}
+                else if(code == 0x1f){code = 0x26;}
+
+                input_event(dev, EV_KEY, code, value);
+                input_sync(dev);
+        }
+	
 	if(data == ATKBD_RET_BAT){
 		printk("keyboard reset okay.");
 	}
@@ -156,8 +155,16 @@ static irqreturn_t lincoln_irq_handler(struct serio *serio, unsigned char data, 
 		printk("we get an ACK from the keyboard.");
 	}
 	else {
-		struct atkbd *atkbd = serio_get_drvdata(serio);	
-		struct input_dev *dev = atkbd->dev;
+		if(data == 0x2a){ // key down
+                        flag = 1;
+                }
+                if(data == 0xaa){ // key up
+                        printk("BAT OK.");
+                        return IRQ_HANDLED;
+                }
+		atkbd = serio_get_drvdata(serio);	
+		dev = atkbd->dev;
+		
 		if(code == 0x26){code = 0x1f;}
 		else if(code == 0x1f){code = 0x26;}		
 
